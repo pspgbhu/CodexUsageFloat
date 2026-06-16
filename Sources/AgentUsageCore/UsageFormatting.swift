@@ -1,0 +1,69 @@
+import Foundation
+
+public enum UsageFormatting {
+    public static func tokenCount(_ value: Int64?) -> String {
+        guard let value else {
+            return "Unavailable"
+        }
+
+        let doubleValue = Double(value)
+        switch abs(value) {
+        case 0..<1_000:
+            return "\(value)"
+        case 1_000..<1_000_000:
+            return compact(doubleValue / 1_000, suffix: "K")
+        case 1_000_000..<1_000_000_000:
+            return compact(doubleValue / 1_000_000, suffix: "M")
+        default:
+            return compact(doubleValue / 1_000_000_000, suffix: "B")
+        }
+    }
+
+    public static func percent(_ value: Int?) -> String {
+        guard let value else {
+            return "Unavailable"
+        }
+        return "\(value)%"
+    }
+
+    public static func remainingPercent(fromUsedPercent usedPercent: Int?) -> String {
+        guard let usedPercent else {
+            return "Unavailable"
+        }
+        return "\(max(0, min(100, 100 - usedPercent)))%"
+    }
+
+    public static func credits(_ credits: CreditsInfo?) -> String {
+        guard let credits else {
+            return "Unavailable"
+        }
+
+        if credits.unlimited {
+            return "Unlimited"
+        }
+
+        if let balance = credits.balance, !balance.isEmpty {
+            return balance
+        }
+
+        return credits.hasCredits ? "Available" : "No credits"
+    }
+
+    public static func dateTime(_ date: Date?) -> String {
+        guard let date else {
+            return "Unavailable"
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private static func compact(_ value: Double, suffix: String) -> String {
+        if value >= 10 {
+            return String(format: "%.0f%@", value, suffix)
+        }
+        return String(format: "%.1f%@", value, suffix)
+    }
+}

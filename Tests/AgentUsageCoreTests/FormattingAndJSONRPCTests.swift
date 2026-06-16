@@ -1,0 +1,51 @@
+import XCTest
+@testable import AgentUsageCore
+
+final class FormattingAndJSONRPCTests: XCTestCase {
+    func testTokenFormatting() {
+        XCTAssertEqual(UsageFormatting.tokenCount(nil), "Unavailable")
+        XCTAssertEqual(UsageFormatting.tokenCount(999), "999")
+        XCTAssertEqual(UsageFormatting.tokenCount(12_300), "12K")
+        XCTAssertEqual(UsageFormatting.tokenCount(1_250_000), "1.2M")
+    }
+
+    func testCreditFormatting() {
+        XCTAssertEqual(UsageFormatting.credits(nil), "Unavailable")
+        XCTAssertEqual(UsageFormatting.credits(CreditsInfo(hasCredits: true, unlimited: true, balance: nil)), "Unlimited")
+        XCTAssertEqual(UsageFormatting.credits(CreditsInfo(hasCredits: true, unlimited: false, balance: "$4.20")), "$4.20")
+        XCTAssertEqual(UsageFormatting.credits(CreditsInfo(hasCredits: false, unlimited: false, balance: nil)), "No credits")
+    }
+
+    func testRemainingPercentFormatting() {
+        XCTAssertEqual(UsageFormatting.remainingPercent(fromUsedPercent: nil), "Unavailable")
+        XCTAssertEqual(UsageFormatting.remainingPercent(fromUsedPercent: 0), "100%")
+        XCTAssertEqual(UsageFormatting.remainingPercent(fromUsedPercent: 42), "58%")
+        XCTAssertEqual(UsageFormatting.remainingPercent(fromUsedPercent: 120), "0%")
+    }
+
+    func testJSONRPCResultParsing() throws {
+        let response = try JSONRPCResponseParser.parseResultLine(Data("""
+        {"id": 2, "result": {"ok": true}}
+        """.utf8))
+
+        XCTAssertEqual(response?.id, 2)
+        let object = try JSONSerialization.jsonObject(with: response!.payload) as? [String: Bool]
+        XCTAssertEqual(object?["ok"], true)
+    }
+
+    func testJSONRPCNotificationIsIgnored() throws {
+        let response = try JSONRPCResponseParser.parseResultLine(Data("""
+        {"method": "account/rateLimits/updated", "params": {}}
+        """.utf8))
+
+        XCTAssertNil(response)
+    }
+
+    func testJSONRPCErrorParsing() {
+        XCTAssertThrowsError(try JSONRPCResponseParser.parseResultLine(Data("""
+        {"id": 3, "error": {"code": -32000, "message": "failed"}}
+        """.utf8))) { error in
+            XCTAssertEqual(error as? UsageProviderError, .rpc(code: -32000, message: "failed"))
+        }
+    }
+}
