@@ -110,6 +110,9 @@ public enum CodexUsageMapper {
         let todayTokens = response.dailyUsageBuckets?
             .first(where: { $0.startDate.hasPrefix(todayPrefix) })?
             .tokens
+            ?? response.dailyUsageBuckets?
+            .max { $0.startDate < $1.startDate }?
+            .tokens
 
         return TokenUsageInfo(
             todayTokens: todayTokens,

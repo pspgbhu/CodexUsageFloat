@@ -19,15 +19,15 @@ enum LaunchAgentManager {
         FileManager.default.fileExists(atPath: plistURL.path)
     }
 
-    static func setEnabled(_ enabled: Bool) throws {
+    static func setEnabled(_ enabled: Bool, loadIntoCurrentSession: Bool = false) throws {
         if enabled {
-            try install()
+            try install(loadIntoCurrentSession: loadIntoCurrentSession)
         } else {
             try uninstall()
         }
     }
 
-    private static func install() throws {
+    private static func install(loadIntoCurrentSession: Bool) throws {
         try FileManager.default.createDirectory(
             at: plistURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -54,6 +54,13 @@ enum LaunchAgentManager {
         if FileManager.default.fileExists(atPath: legacyPlistURL.path) {
             try? FileManager.default.removeItem(at: legacyPlistURL)
         }
+
+        // In-app login toggles should register the next login only; bootstrapping now
+        // would launch a second menu bar instance beside the currently running app.
+        guard loadIntoCurrentSession else {
+            return
+        }
+
         _ = try? runLaunchctl(["bootout", "gui/\(getuid())", plistURL.path])
         try runLaunchctl(["bootstrap", "gui/\(getuid())", plistURL.path])
         _ = try? runLaunchctl(["enable", "gui/\(getuid())/\(label)"])

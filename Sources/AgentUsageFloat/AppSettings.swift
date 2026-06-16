@@ -1,5 +1,5 @@
+import Combine
 import Foundation
-import AppKit
 
 @MainActor
 final class AppSettings: ObservableObject {
@@ -15,15 +15,15 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    @Published var isPinned: Bool {
-        didSet {
-            defaults.set(isPinned, forKey: Keys.isPinned)
-        }
-    }
-
     @Published var launchAtLoginEnabled: Bool {
         didSet {
             defaults.set(launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
+        }
+    }
+
+    @Published var selectedStatusBarMetrics: [StatusBarMetric] {
+        didSet {
+            defaults.set(selectedStatusBarMetrics.map(\.rawValue), forKey: Keys.selectedStatusBarMetrics)
         }
     }
 
@@ -52,35 +52,49 @@ final class AppSettings: ObservableObject {
         self.defaultProviderExecutablePath = defaults.string(forKey: Keys.defaultProviderExecutablePath)
             ?? Self.defaultCodexExecutablePath
         self.refreshIntervalSeconds = defaults.double(forKey: Keys.refreshIntervalSeconds)
-        self.isPinned = defaults.bool(forKey: Keys.isPinned)
         self.launchAtLoginEnabled = defaults.bool(forKey: Keys.launchAtLoginEnabled)
+        self.selectedStatusBarMetrics = Self.loadStatusBarMetrics(from: defaults)
+        defaults.set(selectedStatusBarMetrics.map(\.rawValue), forKey: Keys.selectedStatusBarMetrics)
     }
 
-    func savedPanelFrame() -> CGRect? {
-        guard let string = defaults.string(forKey: Keys.panelFrame) else {
-            return nil
+    func isStatusBarMetricEnabled(_ metric: StatusBarMetric) -> Bool {
+        selectedStatusBarMetrics.contains(metric)
+    }
+
+    func setStatusBarMetric(_ metric: StatusBarMetric, enabled: Bool) {
+        var nextMetrics = selectedStatusBarMetrics
+
+        if enabled {
+            if !nextMetrics.contains(metric) {
+                nextMetrics.append(metric)
+            }
+        } else {
+            nextMetrics.removeAll { $0 == metric }
         }
-        return NSRectFromString(string)
-    }
 
-    func savePanelFrame(_ frame: CGRect) {
-        defaults.set(NSStringFromRect(frame), forKey: Keys.panelFrame)
+        selectedStatusBarMetrics = nextMetrics
     }
 
     private enum Keys {
         static let defaultProviderExecutablePath = "defaultProviderExecutablePath"
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
-        static let isPinned = "isPinned"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
-        static let panelFrame = "panelFrame"
+        static let selectedStatusBarMetrics = "selectedStatusBarMetrics"
     }
 
     private enum LegacyKeys {
         static let codexCLIPath = "codexCLIPath"
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
-        static let isPinned = "isPinned"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
-        static let panelFrame = "panelFrame"
+    }
+
+    private static func loadStatusBarMetrics(from defaults: UserDefaults) -> [StatusBarMetric] {
+        guard let rawValues = defaults.stringArray(forKey: Keys.selectedStatusBarMetrics) else {
+            return [.primaryRemaining]
+        }
+
+        let metrics = rawValues.compactMap(StatusBarMetric.init(rawValue:))
+        return rawValues.isEmpty ? [] : (metrics.isEmpty ? [.primaryRemaining] : metrics)
     }
 
     private static func migrateLegacyDefaultsIfNeeded(to defaults: UserDefaults) {
@@ -101,20 +115,8 @@ final class AppSettings: ObservableObject {
             to: defaults
         )
         copyLegacyValueIfMissing(
-            key: Keys.isPinned,
-            legacyKey: LegacyKeys.isPinned,
-            from: legacyDefaults,
-            to: defaults
-        )
-        copyLegacyValueIfMissing(
             key: Keys.launchAtLoginEnabled,
             legacyKey: LegacyKeys.launchAtLoginEnabled,
-            from: legacyDefaults,
-            to: defaults
-        )
-        copyLegacyValueIfMissing(
-            key: Keys.panelFrame,
-            legacyKey: LegacyKeys.panelFrame,
             from: legacyDefaults,
             to: defaults
         )

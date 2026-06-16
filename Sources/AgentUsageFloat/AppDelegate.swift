@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var viewModel: UsageViewModel!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if terminateIfAnotherInstanceIsRunning() {
+            return
+        }
+
         NSApp.setActivationPolicy(.accessory)
 
         settings = AppSettings()
@@ -21,7 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         configureStatusItem()
         configurePanel()
-        applyPinState()
         viewModel.start()
 
         if settings.launchAtLoginEnabled && !LaunchAgentManager.isInstalled() {
@@ -29,10 +32,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        if let frame = panel?.frame {
-            settings.savePanelFrame(frame)
+    private func terminateIfAnotherInstanceIsRunning() -> Bool {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+            return false
         }
+
+        let currentProcessIdentifier = ProcessInfo.processInfo.processIdentifier
+        let hasExistingInstance = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .contains { $0.processIdentifier != currentProcessIdentifier }
+
+        if hasExistingInstance {
+            NSApp.terminate(nil)
+        }
+
+        return hasExistingInstance
     }
 
     private func configureStatusItem() {
@@ -40,14 +54,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         self.statusItem = statusItem
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "gauge", accessibilityDescription: "Agent Usage")
+            button.image = makeStatusItemImage()
             button.imagePosition = .imageLeading
-            button.title = "P --"
-            button.toolTip = "\(viewModel.providerDescriptor.displayName) primary remaining unavailable"
+            button.imageScaling = .scaleNone
+            button.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+            button.title = statusBarTitle(for: nil)
+            button.toolTip = statusBarToolTip(for: nil)
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
+    }
+
+    private func makeStatusItemImage() -> NSImage? {
+        let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        guard let image = NSImage(systemSymbolName: "gauge", accessibilityDescription: "Agent Usage")?
+            .withSymbolConfiguration(configuration)
+        else {
+            return nil
+        }
+
+        image.isTemplate = true
+        image.size = NSSize(width: 16, height: 16)
+        image.alignmentRect = NSRect(x: 0, y: -0.5, width: 16, height: 16)
+        return image
     }
 
     private func updateStatusItemTitle(_ snapshot: UsageSnapshot?) {
@@ -55,15 +85,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        if let remainingPercent = snapshot?.limits?.primary?.remainingPercent {
-            button.title = "P \(remainingPercent)%"
-            let providerName = snapshot?.provider.displayName ?? viewModel.providerDescriptor.displayName
-            button.toolTip = "\(providerName) primary remaining: \(remainingPercent)%"
-        } else {
-            button.title = "P --"
-            let providerName = snapshot?.provider.displayName ?? viewModel.providerDescriptor.displayName
-            button.toolTip = "\(providerName) primary remaining unavailable"
+        button.title = statusBarTitle(for: snapshot)
+        button.toolTip = statusBarToolTip(for: snapshot)
+    }
+
+    private func statusBarTitle(for snapshot: UsageSnapshot?) -> String {
+        settings.selectedStatusBarMetrics
+            .map { $0.menuBarComponent(from: snapshot) }
+            .joined(separator: "  ")
+    }
+
+    private func statusBarToolTip(for snapshot: UsageSnapshot?) -> String {
+        let providerName = snapshot?.provider.displayName ?? viewModel.providerDescriptor.displayName
+        let metricSummary = settings.selectedStatusBarMetrics
+            .map { $0.tooltipComponent(from: snapshot) }
+            .joined(separator: "，")
+        guard !metricSummary.isEmpty else {
+            return providerName
         }
+        return "\(providerName)：\(metricSummary)"
     }
 
     private func configurePanel() {
@@ -75,11 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     await self?.viewModel.refresh()
                 }
             },
-            onTogglePin: { [weak self] in
-                self?.togglePin()
+            onSetLaunchAtLogin: { [weak self] enabled in
+                self?.setLaunchAtLogin(enabled)
             },
-            onToggleLaunchAtLogin: { [weak self] in
-                self?.toggleLaunchAtLogin()
+            onSetStatusBarMetric: { [weak self] metric, enabled in
+                self?.setStatusBarMetric(metric, enabled: enabled)
             },
             onQuit: {
                 NSApp.terminate(nil)
@@ -87,47 +127,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 440),
-            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 460),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         panel.delegate = self
         panel.isReleasedWhenClosed = false
-        panel.hidesOnDeactivate = false
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
+        panel.hidesOnDeactivate = true
+        panel.isMovableByWindowBackground = false
         panel.backgroundColor = .clear
+        panel.hasShadow = true
         panel.contentView = NSHostingView(rootView: content)
-
-        if let savedFrame = settings.savedPanelFrame() {
-            panel.setFrame(savedFrame, display: false)
-        } else {
-            positionPanelBelowStatusItem(panel)
-        }
+        positionPanelBelowStatusItem(panel)
 
         self.panel = panel
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(panelMoved(_:)),
-            name: NSWindow.didMoveNotification,
-            object: panel
-        )
     }
 
     @objc private func statusItemClicked(_ sender: Any?) {
-        guard let event = NSApp.currentEvent else {
-            togglePanel()
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            popStatusMenu()
             return
         }
 
-        if event.type == .rightMouseUp {
-            popStatusMenu()
-        } else {
-            togglePanel()
+        togglePanel()
+    }
+
+    private func popStatusMenu() {
+        guard let button = statusItem?.button else {
+            return
         }
+
+        let menu = NSMenu()
+        let openItem = NSMenuItem(title: "打开面板", action: #selector(openPanelFromMenu), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitFromMenu), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 2), in: button)
+    }
+
+    @objc private func openPanelFromMenu() {
+        showPanel()
+    }
+
+    @objc private func quitFromMenu() {
+        NSApp.terminate(nil)
     }
 
     private func togglePanel() {
@@ -140,67 +189,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        if settings.savedPanelFrame() == nil {
-            positionPanelBelowStatusItem(panel)
+        showPanel()
+    }
+
+    private func showPanel() {
+        guard let panel else {
+            return
         }
+
+        positionPanelBelowStatusItem(panel)
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func popStatusMenu() {
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Refresh", action: #selector(refreshFromMenu), keyEquivalent: "r"))
-        menu.addItem(NSMenuItem(title: settings.isPinned ? "Unpin" : "Pin", action: #selector(togglePinFromMenu), keyEquivalent: "p"))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: settings.launchAtLoginEnabled ? "Disable Login Launch" : "Enable Login Launch", action: #selector(toggleLaunchFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitFromMenu), keyEquivalent: "q"))
-
-        for item in menu.items {
-            item.target = self
+    @discardableResult
+    private func setLaunchAtLogin(_ enabled: Bool) -> Bool {
+        guard enabled != settings.launchAtLoginEnabled else {
+            return true
         }
 
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-        statusItem?.menu = nil
-    }
-
-    @objc private func refreshFromMenu() {
-        Task {
-            await viewModel.refresh()
-        }
-    }
-
-    @objc private func togglePinFromMenu() {
-        togglePin()
-    }
-
-    @objc private func toggleLaunchFromMenu() {
-        toggleLaunchAtLogin()
-    }
-
-    @objc private func quitFromMenu() {
-        NSApp.terminate(nil)
-    }
-
-    private func togglePin() {
-        settings.isPinned.toggle()
-        applyPinState()
-    }
-
-    private func applyPinState() {
-        panel?.level = settings.isPinned ? .floating : .normal
-        panel?.collectionBehavior = settings.isPinned ? [.canJoinAllSpaces, .fullScreenAuxiliary] : []
-    }
-
-    private func toggleLaunchAtLogin() {
-        let nextValue = !settings.launchAtLoginEnabled
         do {
-            try LaunchAgentManager.setEnabled(nextValue)
-            settings.launchAtLoginEnabled = nextValue
+            try LaunchAgentManager.setEnabled(enabled)
+            settings.launchAtLoginEnabled = enabled
+            return true
         } catch {
             NSSound.beep()
+            return false
         }
+    }
+
+    private func setStatusBarMetric(_ metric: StatusBarMetric, enabled: Bool) {
+        settings.setStatusBarMetric(metric, enabled: enabled)
+        updateStatusItemTitle(viewModel.snapshot)
     }
 
     private func positionPanelBelowStatusItem(_ panel: NSPanel) {
@@ -221,15 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    @objc private func panelMoved(_ notification: Notification) {
-        if let panel = notification.object as? NSPanel {
-            settings.savePanelFrame(panel.frame)
-        }
-    }
-
     func windowDidResignKey(_ notification: Notification) {
-        if !settings.isPinned {
-            panel?.orderOut(nil)
-        }
+        panel?.orderOut(nil)
     }
 }

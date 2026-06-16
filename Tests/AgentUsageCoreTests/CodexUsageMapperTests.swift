@@ -54,6 +54,43 @@ final class CodexUsageMapperTests: XCTestCase {
         XCTAssertEqual(snapshot.limits?.primary?.remainingPercent, 58)
         XCTAssertEqual(snapshot.account?.kind, "chatgpt")
         XCTAssertEqual(snapshot.tokenUsage?.lifetimeTokens, 1_200_000)
+        XCTAssertEqual(snapshot.tokenUsage?.todayTokens, 12_345)
+    }
+
+    func testUsesLatestDailyBucketWhenLocalTodayIsMissing() throws {
+        let rateLimits = try decodeRateLimits("""
+        {
+          "rateLimits": {
+            "limitId": "codex",
+            "credits": {"hasCredits": true, "unlimited": false, "balance": null},
+            "primary": {"usedPercent": 3}
+          }
+        }
+        """)
+        let usage = try decodeUsage("""
+        {
+          "summary": {"lifetimeTokens": 1200000, "peakDailyTokens": 45000},
+          "dailyUsageBuckets": [
+            {"startDate": "2026-06-14", "tokens": 100},
+            {"startDate": "2026-06-15", "tokens": 200}
+          ]
+        }
+        """)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 8 * 3600)!
+        let june16 = Date(timeIntervalSince1970: 1_781_577_600)
+
+        let snapshot = CodexUsageMapper.makeSnapshot(
+            rateLimits: rateLimits,
+            tokenUsage: usage,
+            account: GetAccountResponse(account: .chatgpt(planType: "pro"), requiresOpenaiAuth: false),
+            provider: provider,
+            refreshedAt: june16,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(snapshot.tokenUsage?.todayTokens, 200)
     }
 
     func testFallsBackWhenCodexBucketIsMissing() throws {
