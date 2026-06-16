@@ -9,6 +9,7 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 SWIFTC_BUILD_DIR="$ROOT_DIR/.build/swiftc-release"
 BINARY_PATH="$ROOT_DIR/.build/release/$APP_NAME"
+ICON_FILE="$ROOT_DIR/Resources/AppIcon.icns"
 
 cd "$ROOT_DIR"
 
@@ -42,6 +43,9 @@ rm -rf "$ROOT_DIR/dist/CodexUsageFloat.app"
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BINARY_PATH" "$MACOS_DIR/$APP_NAME"
+if [[ -f "$ICON_FILE" ]]; then
+  cp "$ICON_FILE" "$RESOURCES_DIR/AppIcon.icns"
+fi
 
 cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -56,6 +60,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>Agent Usage</string>
   <key>CFBundleDisplayName</key>
   <string>Agent Usage</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon.icns</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
