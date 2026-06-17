@@ -9,7 +9,6 @@ struct UsagePanelView: View {
     var onRefresh: () -> Void
     var onSetLaunchAtLogin: (Bool) -> Void
     var onSetStatusBarMetric: (StatusBarMetric, Bool) -> Void
-    var onQuit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -62,7 +61,7 @@ struct UsagePanelView: View {
         VStack(spacing: 8) {
             actionRow
             HStack(spacing: 12) {
-                Label("状态栏指标", systemImage: "menubar.rectangle")
+                settingsRowLabel("状态栏指标", systemName: "menubar.rectangle")
                 Spacer()
                 Menu(statusBarMetricSummary) {
                     Button("仅显示图标") {
@@ -92,19 +91,21 @@ struct UsagePanelView: View {
 
     private var actionRow: some View {
         HStack(spacing: 12) {
-            Text("登录时启动")
+            settingsRowLabel("登录时启动", systemName: "power")
+            Spacer()
             NativeSwitch(isOn: Binding(
                 get: { settings.launchAtLoginEnabled },
                 set: { onSetLaunchAtLogin($0) }
             ))
             .frame(width: 44, height: 24)
+        }
+    }
 
-            Spacer()
-
-            Button(action: onQuit) {
-                Label("退出", systemImage: "power")
-            }
-            .buttonStyle(.borderless)
+    private func settingsRowLabel(_ title: String, systemName: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemName)
+                .frame(width: 20, alignment: .center)
+            Text(title)
         }
     }
 
@@ -152,6 +153,7 @@ struct UsagePanelView: View {
             labelValue("额度桶", localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
             labelValue("主额度剩余", localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
             labelValue("次额度剩余", localizedValue(UsageFormatting.percent(limits?.secondary?.remainingPercent)))
+            labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
 
             if let individual = limits?.individualLimit {
                 Divider()

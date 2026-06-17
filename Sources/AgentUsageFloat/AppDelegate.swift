@@ -4,7 +4,8 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let statusItemPanelGap: CGFloat = 8
+    private let statusItemPanelGap: CGFloat = 2
+    private let statusItemMenuGap: CGFloat = 8
 
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
@@ -124,9 +125,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onSetStatusBarMetric: { [weak self] metric, enabled in
                 self?.setStatusBarMetric(metric, enabled: enabled)
-            },
-            onQuit: {
-                NSApp.terminate(nil)
             }
         )
 
@@ -246,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let screenFrame = window.convertToScreen(buttonFrame)
         let menuSize = menu.size
         let x = min(max(screenFrame.midX - menuSize.width / 2, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - menuSize.width - 12)
-        let y = screenFrame.minY - statusItemPanelGap
+        let y = screenFrame.minY - statusItemMenuGap
         return NSPoint(x: x, y: y)
     }
 

@@ -71,6 +71,22 @@ public enum UsageFormatting {
         return formatter.string(from: date)
     }
 
+    public static func adaptiveResetTime(
+        _ date: Date?,
+        now: Date = Date(),
+        timeZone: TimeZone = .current
+    ) -> String {
+        guard let date else {
+            return "Unavailable"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = abs(date.timeIntervalSince(now)) < 24 * 60 * 60 ? "HH:mm" : "MM/dd"
+        return formatter.string(from: date)
+    }
+
     private static func compact(_ value: Double, suffix: String) -> String {
         if value >= 10 {
             return String(format: "%.0f%@", value, suffix)

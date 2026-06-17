@@ -6,6 +6,7 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
     case secondaryRemaining
     case spendRemaining
     case resetTime
+    case secondaryResetTime
     case credits
     case todayTokens
     case lifetimeTokens
@@ -26,6 +27,8 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
             return "消费额度剩余"
         case .resetTime:
             return "重置时间"
+        case .secondaryResetTime:
+            return "次额度重置时间"
         case .credits:
             return "余额"
         case .todayTokens:
@@ -49,6 +52,8 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
             return "Spend"
         case .resetTime:
             return "R"
+        case .secondaryResetTime:
+            return "SR"
         case .credits:
             return "C"
         case .todayTokens:
@@ -84,6 +89,8 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
                     ?? snapshot?.limits?.primary?.resetsAt
                     ?? snapshot?.limits?.secondary?.resetsAt
             )
+        case .secondaryResetTime:
+            return UsageFormatting.adaptiveResetTime(snapshot?.limits?.secondary?.resetsAt)
         case .credits:
             return UsageFormatting.credits(snapshot?.credits)
         case .todayTokens:

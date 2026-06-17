@@ -23,6 +23,22 @@ final class FormattingAndJSONRPCTests: XCTestCase {
         XCTAssertEqual(UsageFormatting.remainingPercent(fromUsedPercent: 120), "0%")
     }
 
+    func testAdaptiveResetTimeUsesTimeWithin24Hours() {
+        let timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_781_510_400)
+        let reset = Date(timeIntervalSince1970: 1_781_535_600)
+
+        XCTAssertEqual(UsageFormatting.adaptiveResetTime(reset, now: now, timeZone: timeZone), "15:00")
+    }
+
+    func testAdaptiveResetTimeUsesMonthAndDayAfter24Hours() {
+        let timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_781_510_400)
+        let reset = Date(timeIntervalSince1970: 1_781_683_200)
+
+        XCTAssertEqual(UsageFormatting.adaptiveResetTime(reset, now: now, timeZone: timeZone), "06/17")
+    }
+
     func testJSONRPCResultParsing() throws {
         let response = try JSONRPCResponseParser.parseResultLine(Data("""
         {"id": 2, "result": {"ok": true}}
