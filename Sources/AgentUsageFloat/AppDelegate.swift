@@ -101,14 +101,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func statusBarToolTip(for snapshot: UsageSnapshot?) -> String {
+        let strings = AppStrings(language: settings.language)
         let providerName = snapshot?.provider.displayName ?? viewModel.providerDescriptor.displayName
         let metricSummary = settings.selectedStatusBarMetrics
-            .map { $0.tooltipComponent(from: snapshot) }
-            .joined(separator: "，")
+            .map { $0.tooltipComponent(from: snapshot, language: settings.language) }
+            .joined(separator: strings.tooltipItemSeparator)
         guard !metricSummary.isEmpty else {
             return providerName
         }
-        return "\(providerName)：\(metricSummary)"
+        return "\(providerName)\(strings.tooltipSeparator)\(metricSummary)"
     }
 
     private func configurePanel() {
@@ -160,13 +161,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func popStatusMenu() {
         hideAllPanels()
 
+        let strings = AppStrings(language: settings.language)
         let menu = NSMenu()
-        let openItem = NSMenuItem(title: "打开面板", action: #selector(openPanelFromMenu), keyEquivalent: "")
+        let openItem = NSMenuItem(title: strings.openPanel, action: #selector(openPanelFromMenu), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitFromMenu), keyEquivalent: "q")
+        let languageItem = NSMenuItem(title: strings.languageMenuTitle, action: nil, keyEquivalent: "")
+        let languageMenu = NSMenu()
+        for language in AppLanguage.allCases {
+            let item = NSMenuItem(
+                title: strings.displayName(for: language),
+                action: #selector(languageSelectedFromMenu(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = language.rawValue
+            item.state = settings.language == language ? .on : .off
+            languageMenu.addItem(item)
+        }
+        menu.setSubmenu(languageMenu, for: languageItem)
+        menu.addItem(languageItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: strings.quit, action: #selector(quitFromMenu), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -180,6 +199,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitFromMenu() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func languageSelectedFromMenu(_ sender: NSMenuItem) {
+        guard
+            let rawValue = sender.representedObject as? String,
+            let language = AppLanguage(rawValue: rawValue),
+            language != settings.language
+        else {
+            return
+        }
+
+        settings.language = language
+        updateStatusItemTitle(viewModel.snapshot)
     }
 
     private func togglePanel() {

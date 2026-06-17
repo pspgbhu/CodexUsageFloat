@@ -27,6 +27,12 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    @Published var language: AppLanguage {
+        didSet {
+            defaults.set(language.rawValue, forKey: Keys.language)
+        }
+    }
+
     private let defaults: UserDefaults
     private static let legacyDefaultsSuiteName = "com.local.codex-usage-float"
     private static let defaultCodexExecutablePath = "/Applications/Codex.app/Contents/Resources/codex"
@@ -36,6 +42,11 @@ final class AppSettings: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         Self.migrateLegacyDefaultsIfNeeded(to: defaults)
+
+        let missingLanguage = defaults.object(forKey: Keys.language) == nil
+        let defaultLanguage: AppLanguage = missingLanguage && Self.hasExistingAppSettings(in: defaults)
+            ? .simplifiedChinese
+            : .english
 
         if defaults.object(forKey: Keys.defaultProviderExecutablePath) == nil {
             defaults.set(Self.defaultCodexExecutablePath, forKey: Keys.defaultProviderExecutablePath)
@@ -54,7 +65,9 @@ final class AppSettings: ObservableObject {
         self.refreshIntervalSeconds = defaults.double(forKey: Keys.refreshIntervalSeconds)
         self.launchAtLoginEnabled = defaults.bool(forKey: Keys.launchAtLoginEnabled)
         self.selectedStatusBarMetrics = Self.loadStatusBarMetrics(from: defaults)
+        self.language = Self.loadLanguage(from: defaults, defaultLanguage: defaultLanguage)
         defaults.set(selectedStatusBarMetrics.map(\.rawValue), forKey: Keys.selectedStatusBarMetrics)
+        defaults.set(language.rawValue, forKey: Keys.language)
     }
 
     func isStatusBarMetricEnabled(_ metric: StatusBarMetric) -> Bool {
@@ -80,6 +93,7 @@ final class AppSettings: ObservableObject {
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
         static let selectedStatusBarMetrics = "selectedStatusBarMetrics"
+        static let language = "language"
     }
 
     private enum LegacyKeys {
@@ -95,6 +109,26 @@ final class AppSettings: ObservableObject {
 
         let metrics = rawValues.compactMap(StatusBarMetric.init(rawValue:))
         return rawValues.isEmpty ? [] : (metrics.isEmpty ? [.primaryRemaining] : metrics)
+    }
+
+    private static func loadLanguage(from defaults: UserDefaults, defaultLanguage: AppLanguage) -> AppLanguage {
+        guard
+            let rawValue = defaults.string(forKey: Keys.language),
+            let language = AppLanguage(rawValue: rawValue)
+        else {
+            return defaultLanguage
+        }
+
+        return language
+    }
+
+    private static func hasExistingAppSettings(in defaults: UserDefaults) -> Bool {
+        [
+            Keys.defaultProviderExecutablePath,
+            Keys.refreshIntervalSeconds,
+            Keys.launchAtLoginEnabled,
+            Keys.selectedStatusBarMetrics
+        ].contains { defaults.object(forKey: $0) != nil }
     }
 
     private static func migrateLegacyDefaultsIfNeeded(to defaults: UserDefaults) {

@@ -17,31 +17,6 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var panelTitle: String {
-        switch self {
-        case .primaryRemaining:
-            return "主额度剩余"
-        case .secondaryRemaining:
-            return "次额度剩余"
-        case .spendRemaining:
-            return "消费额度剩余"
-        case .resetTime:
-            return "重置时间"
-        case .secondaryResetTime:
-            return "次额度重置时间"
-        case .credits:
-            return "余额"
-        case .todayTokens:
-            return "今日 Token"
-        case .lifetimeTokens:
-            return "累计 Token"
-        case .peakDailyTokens:
-            return "峰值日 Token"
-        case .currentStreakDays:
-            return "连续天数"
-        }
-    }
-
     var shortLabel: String {
         switch self {
         case .primaryRemaining:
@@ -71,11 +46,33 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         "\(shortLabel) \(compactValue(from: snapshot))"
     }
 
-    func tooltipComponent(from snapshot: UsageSnapshot?) -> String {
-        "\(panelTitle)：\(fullValue(from: snapshot))"
+    func tooltipComponent(from snapshot: UsageSnapshot?, language: AppLanguage) -> String {
+        let strings = AppStrings(language: language)
+        return "\(strings.metricTitle(self))\(strings.tooltipSeparator)\(fullValue(from: snapshot, language: language))"
     }
 
-    func fullValue(from snapshot: UsageSnapshot?) -> String {
+    func fullValue(from snapshot: UsageSnapshot?, language: AppLanguage) -> String {
+        let strings = AppStrings(language: language)
+        switch self {
+        case .resetTime:
+            return strings.dateTime(
+                snapshot?.limits?.individualLimit?.resetsAt
+                    ?? snapshot?.limits?.primary?.resetsAt
+                    ?? snapshot?.limits?.secondary?.resetsAt
+            )
+        case .secondaryResetTime:
+            return strings.adaptiveResetTime(snapshot?.limits?.secondary?.resetsAt)
+        case .currentStreakDays:
+            guard let days = snapshot?.tokenUsage?.currentStreakDays else {
+                return strings.unavailable
+            }
+            return strings.days(days)
+        default:
+            return strings.localizedValue(rawFullValue(from: snapshot))
+        }
+    }
+
+    private func rawFullValue(from snapshot: UsageSnapshot?) -> String {
         switch self {
         case .primaryRemaining:
             return UsageFormatting.percent(snapshot?.limits?.primary?.remainingPercent)
@@ -108,7 +105,7 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
     }
 
     private func compactValue(from snapshot: UsageSnapshot?) -> String {
-        let value = fullValue(from: snapshot)
+        let value = rawFullValue(from: snapshot)
         switch value {
         case "Unavailable":
             return "--"

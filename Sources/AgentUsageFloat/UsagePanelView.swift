@@ -10,6 +10,10 @@ struct UsagePanelView: View {
     var onSetLaunchAtLogin: (Bool) -> Void
     var onSetStatusBarMetric: (StatusBarMetric, Bool) -> Void
 
+    private var strings: AppStrings {
+        AppStrings(language: settings.language)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
@@ -46,13 +50,13 @@ struct UsagePanelView: View {
         HStack(spacing: 10) {
             Image(systemName: "gauge.with.dots.needle.bottom.50percent")
                 .font(.system(size: 18, weight: .semibold))
-            Text("智能体用量")
+            Text(strings.appTitle)
                 .font(.headline)
             Spacer()
             iconButton(
                 systemName: viewModel.isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise",
                 action: onRefresh,
-                help: "刷新"
+                help: strings.refresh
             )
         }
     }
@@ -61,10 +65,10 @@ struct UsagePanelView: View {
         VStack(spacing: 8) {
             actionRow
             HStack(spacing: 12) {
-                settingsRowLabel("状态栏指标", systemName: "menubar.rectangle")
+                settingsRowLabel(strings.menuBarMetrics, systemName: "menubar.rectangle")
                 Spacer()
                 Menu(statusBarMetricSummary) {
-                    Button("仅显示图标") {
+                    Button(strings.iconOnly) {
                         for metric in StatusBarMetric.allCases {
                             onSetStatusBarMetric(metric, false)
                         }
@@ -72,7 +76,7 @@ struct UsagePanelView: View {
                     Divider()
 
                     ForEach(StatusBarMetric.allCases) { metric in
-                        Toggle(metric.panelTitle, isOn: Binding(
+                        Toggle(strings.metricTitle(metric), isOn: Binding(
                             get: { settings.isStatusBarMetricEnabled(metric) },
                             set: { onSetStatusBarMetric(metric, $0) }
                         ))
@@ -85,13 +89,12 @@ struct UsagePanelView: View {
     }
 
     private var statusBarMetricSummary: String {
-        let count = settings.selectedStatusBarMetrics.count
-        return count == 0 ? "仅图标" : "\(count) 项"
+        strings.statusBarMetricSummary(count: settings.selectedStatusBarMetrics.count)
     }
 
     private var actionRow: some View {
         HStack(spacing: 12) {
-            settingsRowLabel("登录时启动", systemName: "power")
+            settingsRowLabel(strings.launchAtLogin, systemName: "power")
             Spacer()
             NativeSwitch(isOn: Binding(
                 get: { settings.launchAtLoginEnabled },
@@ -116,10 +119,10 @@ struct UsagePanelView: View {
                 .frame(width: 8, height: 8)
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 2) {
-                Text(localizedStatusTitle(status))
+                Text(strings.statusTitle(status))
                     .font(.subheadline.weight(.semibold))
                 if let message = status.message {
-                    Text(localizedStatusMessage(status, fallback: message))
+                    Text(strings.statusMessage(status, fallback: message))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -131,13 +134,13 @@ struct UsagePanelView: View {
 
     private func creditsSection(_ snapshot: UsageSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            labelValue("余额", localizedValue(UsageFormatting.credits(snapshot.credits)), prominent: true)
+            labelValue(strings.credits, strings.localizedValue(UsageFormatting.credits(snapshot.credits)), prominent: true)
 
             if let credits = snapshot.credits {
                 HStack(spacing: 10) {
-                    chip(credits.hasCredits ? "可用" : "无余额")
+                    chip(credits.hasCredits ? strings.available : strings.noCredits)
                     if credits.unlimited {
-                        chip("无限制")
+                        chip(strings.unlimited)
                     }
                     if let plan = snapshot.account?.planType ?? snapshot.limits?.planType {
                         chip(plan)
@@ -149,43 +152,43 @@ struct UsagePanelView: View {
 
     private func limitsSection(_ limits: LimitsInfo?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("额度")
-            labelValue("额度桶", localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
-            labelValue("主额度剩余", localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
-            labelValue("次额度剩余", localizedValue(UsageFormatting.percent(limits?.secondary?.remainingPercent)))
+            sectionTitle(strings.limits)
+            labelValue(strings.bucket, strings.localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
+            labelValue(strings.metricTitle(.primaryRemaining), strings.localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
+            labelValue(strings.metricTitle(.secondaryRemaining), strings.localizedValue(UsageFormatting.percent(limits?.secondary?.remainingPercent)))
 
             if let individual = limits?.individualLimit {
                 Divider()
-                labelValue("消费额度剩余", "\(individual.remainingPercent)%", prominent: true)
-                labelValue("消费额度上限", individual.limit)
-                labelValue("已用消费额度", individual.used)
-                labelValue("重置时间", UsageFormatting.dateTime(individual.resetsAt))
-                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
+                labelValue(strings.metricTitle(.spendRemaining), "\(individual.remainingPercent)%", prominent: true)
+                labelValue(strings.spendLimit, individual.limit)
+                labelValue(strings.spendUsed, individual.used)
+                labelValue(strings.metricTitle(.resetTime), strings.dateTime(individual.resetsAt))
+                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
             } else if let reset = limits?.primary?.resetsAt {
-                labelValue("重置时间", UsageFormatting.dateTime(reset))
-                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
+                labelValue(strings.metricTitle(.resetTime), strings.dateTime(reset))
+                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
             } else {
-                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
+                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
             }
         }
     }
 
     private func tokenSection(_ tokenUsage: TokenUsageInfo?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Token")
-            labelValue("今日", localizedValue(UsageFormatting.tokenCount(tokenUsage?.todayTokens)), prominent: true)
-            labelValue("累计", localizedValue(UsageFormatting.tokenCount(tokenUsage?.lifetimeTokens)))
-            labelValue("峰值日", localizedValue(UsageFormatting.tokenCount(tokenUsage?.peakDailyTokens)))
+            sectionTitle(strings.tokenSectionTitle)
+            labelValue(strings.today, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.todayTokens)), prominent: true)
+            labelValue(strings.lifetime, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.lifetimeTokens)))
+            labelValue(strings.peakDay, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.peakDailyTokens)))
 
             if let streak = tokenUsage?.currentStreakDays {
-                labelValue("连续天数", "\(streak) 天")
+                labelValue(strings.metricTitle(.currentStreakDays), strings.days(streak))
             }
         }
     }
 
     private func footer(_ refreshedAt: Date) -> some View {
         HStack {
-            Text("更新于 \(UsageFormatting.timeWithSeconds(refreshedAt))")
+            Text("\(strings.updatedAtPrefix) \(strings.timeWithSeconds(refreshedAt))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -246,46 +249,6 @@ struct UsagePanelView: View {
         }
     }
 
-    private func localizedValue(_ value: String) -> String {
-        switch value {
-        case "Unavailable":
-            return "不可用"
-        case "Unlimited":
-            return "无限制"
-        case "Available":
-            return "可用"
-        case "No credits":
-            return "无余额"
-        default:
-            return value
-        }
-    }
-
-    private func localizedStatusTitle(_ status: UsageStatus) -> String {
-        switch status {
-        case .fresh:
-            return "已更新"
-        case .stale:
-            return "数据可能过期"
-        case .authRequired:
-            return "需要登录"
-        case .agentUnavailable:
-            return "智能体不可用"
-        case .rateLimited:
-            return "已触发限流"
-        case .error:
-            return "读取失败"
-        }
-    }
-
-    private func localizedStatusMessage(_ status: UsageStatus, fallback: String) -> String {
-        switch status {
-        case .authRequired:
-            return "打开已配置的智能体并重新登录。"
-        default:
-            return fallback
-        }
-    }
 }
 
 private struct NativeSwitch: NSViewRepresentable {
