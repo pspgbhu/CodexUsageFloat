@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         let panel = UsagePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 460),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 492),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

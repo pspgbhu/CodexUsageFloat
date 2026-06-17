@@ -33,7 +33,7 @@ struct UsagePanelView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
         .frame(width: 340)
-        .frame(minHeight: 460, alignment: .topLeading)
+        .frame(minHeight: 492, alignment: .topLeading)
         .background(MenuMaterialBackground())
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -153,7 +153,6 @@ struct UsagePanelView: View {
             labelValue("额度桶", localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
             labelValue("主额度剩余", localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
             labelValue("次额度剩余", localizedValue(UsageFormatting.percent(limits?.secondary?.remainingPercent)))
-            labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
 
             if let individual = limits?.individualLimit {
                 Divider()
@@ -161,8 +160,12 @@ struct UsagePanelView: View {
                 labelValue("消费额度上限", individual.limit)
                 labelValue("已用消费额度", individual.used)
                 labelValue("重置时间", UsageFormatting.dateTime(individual.resetsAt))
+                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
             } else if let reset = limits?.primary?.resetsAt {
                 labelValue("重置时间", UsageFormatting.dateTime(reset))
+                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
+            } else {
+                labelValue("次额度重置时间", localizedValue(UsageFormatting.adaptiveResetTime(limits?.secondary?.resetsAt)))
             }
         }
     }

@@ -83,8 +83,18 @@ public enum UsageFormatting {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone
-        formatter.dateFormat = abs(date.timeIntervalSince(now)) < 24 * 60 * 60 ? "HH:mm" : "MM/dd"
-        return formatter.string(from: date)
+
+        let isWithin24Hours = abs(date.timeIntervalSince(now)) < 24 * 60 * 60
+        formatter.dateFormat = isWithin24Hours ? "HH:mm" : "MM/dd"
+        let formattedTime = formatter.string(from: date)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        if isWithin24Hours, date > now, !calendar.isDate(date, inSameDayAs: now) {
+            return "\(formattedTime)(+1)"
+        }
+
+        return formattedTime
     }
 
     private static func compact(_ value: Double, suffix: String) -> String {
