@@ -34,7 +34,13 @@ struct UsagePanelView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
         .frame(width: 340)
-        .background(.regularMaterial)
+        .frame(minHeight: 460, alignment: .topLeading)
+        .background(MenuMaterialBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
+        )
     }
 
     private var header: some View {
@@ -174,7 +180,7 @@ struct UsagePanelView: View {
 
     private func footer(_ refreshedAt: Date) -> some View {
         HStack {
-            Text("更新于 \(UsageFormatting.dateTime(refreshedAt))")
+            Text("更新于 \(UsageFormatting.timeWithSeconds(refreshedAt))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -307,5 +313,24 @@ private struct NativeSwitch: NSViewRepresentable {
         @objc func switchChanged(_ sender: NSSwitch) {
             isOn.wrappedValue = sender.state == .on
         }
+    }
+}
+
+private struct MenuMaterialBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .menu
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 10
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = .menu
+        view.state = .active
     }
 }

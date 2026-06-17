@@ -60,6 +60,17 @@ public enum UsageFormatting {
         return formatter.string(from: date)
     }
 
+    public static func timeWithSeconds(_ date: Date?) -> String {
+        guard let date else {
+            return "Unavailable"
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+
     private static func compact(_ value: Double, suffix: String) -> String {
         if value >= 10 {
             return String(format: "%.0f%@", value, suffix)

@@ -3,9 +3,13 @@ import AgentUsageCore
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let statusItemPanelGap: CGFloat = 8
+
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
+    private var localEventMonitor: Any?
+    private var globalEventMonitor: Any?
     private var settings: AppSettings!
     private var viewModel: UsageViewModel!
 
@@ -126,20 +130,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         )
 
-        let panel = NSPanel(
+        let panel = UsagePanel(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 460),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        panel.delegate = self
         panel.isReleasedWhenClosed = false
-        panel.hidesOnDeactivate = true
+        panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = false
+        panel.isOpaque = false
+        panel.isFloatingPanel = true
+        panel.level = .popUpMenu
+        panel.collectionBehavior = [.moveToActiveSpace, .transient, .ignoresCycle]
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.contentView = NSHostingView(rootView: content)
-        positionPanelBelowStatusItem(panel)
 
         self.panel = panel
     }
@@ -154,9 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func popStatusMenu() {
-        guard let button = statusItem?.button else {
-            return
-        }
+        hideAllPanels()
 
         let menu = NSMenu()
         let openItem = NSMenuItem(title: "打开面板", action: #selector(openPanelFromMenu), keyEquivalent: "")
@@ -168,7 +172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 2), in: button)
+        menu.update()
+        menu.popUp(positioning: nil, at: statusMenuOrigin(for: menu), in: nil)
     }
 
     @objc private func openPanelFromMenu() {
@@ -185,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         if panel.isVisible {
-            panel.orderOut(nil)
+            hideAllPanels()
             return
         }
 
@@ -198,8 +203,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         positionPanelBelowStatusItem(panel)
-        panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        panel.orderFrontRegardless()
+        installOutsideClickMonitors()
     }
 
     @discardableResult
@@ -223,6 +228,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateStatusItemTitle(viewModel.snapshot)
     }
 
+    private func hideAllPanels() {
+        panel?.orderOut(nil)
+        removeOutsideClickMonitors()
+    }
+
+    private func statusMenuOrigin(for menu: NSMenu) -> NSPoint {
+        guard
+            let button = statusItem?.button,
+            let window = button.window,
+            let screen = window.screen ?? NSScreen.main
+        else {
+            return NSEvent.mouseLocation
+        }
+
+        let buttonFrame = button.convert(button.bounds, to: nil)
+        let screenFrame = window.convertToScreen(buttonFrame)
+        let menuSize = menu.size
+        let x = min(max(screenFrame.midX - menuSize.width / 2, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - menuSize.width - 12)
+        let y = screenFrame.minY - statusItemPanelGap
+        return NSPoint(x: x, y: y)
+    }
+
     private func positionPanelBelowStatusItem(_ panel: NSPanel) {
         guard
             let button = statusItem?.button,
@@ -237,11 +264,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let screenFrame = window.convertToScreen(buttonFrame)
         let panelSize = panel.frame.size
         let x = min(max(screenFrame.midX - panelSize.width / 2, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - panelSize.width - 12)
-        let y = screenFrame.minY - panelSize.height - 8
+        let y = screenFrame.minY - panelSize.height - statusItemPanelGap
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    func windowDidResignKey(_ notification: Notification) {
-        panel?.orderOut(nil)
+    private func installOutsideClickMonitors() {
+        removeOutsideClickMonitors()
+
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self else {
+                return event
+            }
+
+            if self.isEventInsidePanel(event) || self.isEventInsideStatusItem(event) {
+                return event
+            }
+
+            self.hideAllPanels()
+            return event
+        }
+
+        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor in
+                self?.hideAllPanels()
+            }
+        }
+    }
+
+    private func removeOutsideClickMonitors() {
+        if let localEventMonitor {
+            NSEvent.removeMonitor(localEventMonitor)
+            self.localEventMonitor = nil
+        }
+
+        if let globalEventMonitor {
+            NSEvent.removeMonitor(globalEventMonitor)
+            self.globalEventMonitor = nil
+        }
+    }
+
+    private func isEventInsidePanel(_ event: NSEvent) -> Bool {
+        event.window === panel
+    }
+
+    private func isEventInsideStatusItem(_ event: NSEvent) -> Bool {
+        guard
+            let button = statusItem?.button,
+            let buttonWindow = button.window,
+            event.window === buttonWindow
+        else {
+            return false
+        }
+
+        let locationInButton = button.convert(event.locationInWindow, from: nil)
+        return button.bounds.contains(locationInButton)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        removeOutsideClickMonitors()
+    }
+}
+
+private final class UsagePanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        false
     }
 }
