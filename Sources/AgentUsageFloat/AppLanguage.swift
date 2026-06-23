@@ -67,6 +67,15 @@ struct AppStrings {
         }
     }
 
+    var floatingWindow: String {
+        switch language {
+        case .english:
+            return "Floating window"
+        case .simplifiedChinese:
+            return "浮窗展示"
+        }
+    }
+
     var credits: String {
         switch language {
         case .english:

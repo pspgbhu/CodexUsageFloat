@@ -6,9 +6,14 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItemPanelGap: CGFloat = 2
     private let statusItemMenuGap: CGFloat = 8
+    private let floatingWindowMargin: CGFloat = 16
+    private let floatingWindowHorizontalPadding: CGFloat = 12
+    private let floatingWindowVerticalPadding: CGFloat = 6
 
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
+    private var floatingPanel: NSPanel?
+    private var floatingTextField: NSTextField?
     private var localEventMonitor: Any?
     private var globalEventMonitor: Any?
     private var settings: AppSettings!
@@ -25,11 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let provider = CodexUsageProvider(executablePath: settings.defaultProviderExecutablePath)
         viewModel = UsageViewModel(provider: provider, settings: settings)
         viewModel.onSnapshotChanged = { [weak self] snapshot in
-            self?.updateStatusItemTitle(snapshot)
+            self?.updateMetricDisplays(snapshot)
         }
 
         configureStatusItem()
         configurePanel()
+        configureFloatingPanel()
+        updateMetricDisplays(nil)
         viewModel.start()
 
         if settings.launchAtLoginEnabled && !LaunchAgentManager.isInstalled() {
@@ -95,6 +102,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func statusBarTitle(for snapshot: UsageSnapshot?) -> String {
+        guard !settings.floatingWindowEnabled else {
+            return ""
+        }
+
+        return metricsTitle(for: snapshot)
+    }
+
+    private func metricsTitle(for snapshot: UsageSnapshot?) -> String {
         settings.selectedStatusBarMetrics
             .map { $0.menuBarComponent(from: snapshot) }
             .joined(separator: "  ")
@@ -124,13 +139,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onSetLaunchAtLogin: { [weak self] enabled in
                 self?.setLaunchAtLogin(enabled)
             },
+            onSetFloatingWindow: { [weak self] enabled in
+                self?.setFloatingWindow(enabled)
+            },
             onSetStatusBarMetric: { [weak self] metric, enabled in
                 self?.setStatusBarMetric(metric, enabled: enabled)
             }
         )
 
         let panel = UsagePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 492),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 524),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -147,6 +165,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = NSHostingView(rootView: content)
 
         self.panel = panel
+    }
+
+    private func configureFloatingPanel() {
+        let textField = NSTextField(labelWithString: metricsTitle(for: nil))
+        textField.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        textField.textColor = .labelColor
+        textField.alignment = .center
+        textField.lineBreakMode = .byTruncatingTail
+        textField.maximumNumberOfLines = 1
+        textField.cell?.usesSingleLineMode = true
+
+        let backgroundView = FloatingMetricsContentView(frame: NSRect(x: 0, y: 0, width: 80, height: 30))
+        backgroundView.material = .popover
+        backgroundView.blendingMode = .behindWindow
+        backgroundView.state = .active
+        backgroundView.wantsLayer = true
+        backgroundView.layer?.cornerRadius = 8
+        backgroundView.layer?.cornerCurve = .continuous
+        backgroundView.layer?.masksToBounds = true
+        backgroundView.onDragEnded = { [weak self] origin in
+            self?.saveFloatingWindowOrigin(origin)
+        }
+        backgroundView.addSubview(textField)
+
+        let panel = FloatingMetricsPanel(
+            contentRect: backgroundView.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+        panel.isMovableByWindowBackground = false
+        panel.isOpaque = false
+        panel.isFloatingPanel = true
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.ignoresMouseEvents = false
+        panel.contentView = backgroundView
+
+        self.floatingTextField = textField
+        self.floatingPanel = panel
     }
 
     @objc private func statusItemClicked(_ sender: Any?) {
@@ -211,7 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         settings.language = language
-        updateStatusItemTitle(viewModel.snapshot)
+        updateMetricDisplays(viewModel.snapshot)
     }
 
     private func togglePanel() {
@@ -255,7 +317,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setStatusBarMetric(_ metric: StatusBarMetric, enabled: Bool) {
         settings.setStatusBarMetric(metric, enabled: enabled)
-        updateStatusItemTitle(viewModel.snapshot)
+        updateMetricDisplays(viewModel.snapshot)
+    }
+
+    private func setFloatingWindow(_ enabled: Bool) {
+        guard enabled != settings.floatingWindowEnabled else {
+            return
+        }
+
+        settings.floatingWindowEnabled = enabled
+        updateMetricDisplays(viewModel.snapshot)
+    }
+
+    private func updateMetricDisplays(_ snapshot: UsageSnapshot?) {
+        updateStatusItemTitle(snapshot)
+        updateFloatingWindow(snapshot)
+    }
+
+    private func updateFloatingWindow(_ snapshot: UsageSnapshot?) {
+        guard let floatingPanel, let floatingTextField else {
+            return
+        }
+
+        let title = metricsTitle(for: snapshot)
+        floatingTextField.stringValue = title
+
+        guard settings.floatingWindowEnabled, !title.isEmpty else {
+            floatingPanel.orderOut(nil)
+            return
+        }
+
+        let preferredOrigin = settings.floatingWindowOrigin.map { NSPoint(x: CGFloat($0.x), y: CGFloat($0.y)) }
+        guard let screen = floatingWindowScreen(for: preferredOrigin, panelSize: floatingPanel.frame.size) else {
+            return
+        }
+
+        let maxTextWidth = max(
+            44,
+            screen.visibleFrame.width - floatingWindowMargin * 2 - floatingWindowHorizontalPadding * 2
+        )
+        let textSize = floatingTextField.intrinsicContentSize
+        let textWidth = min(max(ceil(textSize.width), 44), maxTextWidth)
+        let textHeight = ceil(textSize.height)
+        let panelSize = NSSize(
+            width: textWidth + floatingWindowHorizontalPadding * 2,
+            height: textHeight + floatingWindowVerticalPadding * 2
+        )
+
+        floatingPanel.setContentSize(panelSize)
+        floatingPanel.contentView?.frame = NSRect(origin: .zero, size: panelSize)
+        floatingTextField.frame = NSRect(
+            x: floatingWindowHorizontalPadding,
+            y: floor((panelSize.height - textHeight) / 2),
+            width: textWidth,
+            height: textHeight
+        )
+        positionFloatingWindow(floatingPanel, on: screen, preferredOrigin: preferredOrigin)
+        floatingPanel.orderFrontRegardless()
     }
 
     private func hideAllPanels() {
@@ -296,6 +414,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let x = min(max(screenFrame.midX - panelSize.width / 2, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - panelSize.width - 12)
         let y = screenFrame.minY - panelSize.height - statusItemPanelGap
         panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func floatingWindowScreen(for origin: NSPoint? = nil, panelSize: NSSize? = nil) -> NSScreen? {
+        if let origin, let panelSize {
+            let proposedFrame = NSRect(origin: origin, size: panelSize)
+            if let screen = screen(containing: proposedFrame) {
+                return screen
+            }
+        }
+
+        return statusItem?.button?.window?.screen ?? NSScreen.main ?? NSScreen.screens.first
+    }
+
+    private func positionFloatingWindow(_ panel: NSPanel, on screen: NSScreen, preferredOrigin: NSPoint?) {
+        if let preferredOrigin {
+            panel.setFrameOrigin(clampedFloatingWindowOrigin(preferredOrigin, size: panel.frame.size, on: screen))
+            return
+        }
+
+        let frame = screen.visibleFrame
+        let panelSize = panel.frame.size
+        let x = frame.maxX - panelSize.width - floatingWindowMargin
+        let y = frame.maxY - panelSize.height - floatingWindowMargin
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func saveFloatingWindowOrigin(_ origin: NSPoint) {
+        guard let floatingPanel else {
+            return
+        }
+
+        let screen = screen(containing: floatingPanel.frame) ?? floatingWindowScreen(panelSize: floatingPanel.frame.size)
+        guard let screen else {
+            settings.setFloatingWindowOrigin(x: Double(origin.x), y: Double(origin.y))
+            return
+        }
+
+        let clampedOrigin = clampedFloatingWindowOrigin(origin, size: floatingPanel.frame.size, on: screen)
+        if clampedOrigin != origin {
+            floatingPanel.setFrameOrigin(clampedOrigin)
+        }
+        settings.setFloatingWindowOrigin(x: Double(clampedOrigin.x), y: Double(clampedOrigin.y))
+    }
+
+    private func screen(containing rect: NSRect) -> NSScreen? {
+        NSScreen.screens.first { $0.visibleFrame.intersects(rect) }
+            ?? NSScreen.screens.first { $0.frame.intersects(rect) }
+    }
+
+    private func clampedFloatingWindowOrigin(_ origin: NSPoint, size: NSSize, on screen: NSScreen) -> NSPoint {
+        let frame = screen.visibleFrame
+        return NSPoint(
+            x: clamped(origin.x, lowerBound: frame.minX, upperBound: frame.maxX - size.width),
+            y: clamped(origin.y, lowerBound: frame.minY, upperBound: frame.maxY - size.height)
+        )
+    }
+
+    private func clamped(_ value: CGFloat, lowerBound: CGFloat, upperBound: CGFloat) -> CGFloat {
+        guard lowerBound <= upperBound else {
+            return lowerBound
+        }
+
+        return min(max(value, lowerBound), upperBound)
     }
 
     private func installOutsideClickMonitors() {
@@ -362,5 +543,53 @@ private final class UsagePanel: NSPanel {
 
     override var canBecomeMain: Bool {
         false
+    }
+}
+
+private final class FloatingMetricsPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        false
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
+}
+
+private final class FloatingMetricsContentView: NSVisualEffectView {
+    var onDragEnded: ((NSPoint) -> Void)?
+
+    private var dragOffset: NSPoint?
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        dragOffset = event.locationInWindow
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, let dragOffset else {
+            return
+        }
+
+        let mouseLocation = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(
+            x: mouseLocation.x - dragOffset.x,
+            y: mouseLocation.y - dragOffset.y
+        ))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer {
+            dragOffset = nil
+        }
+
+        guard let window else {
+            return
+        }
+
+        onDragEnded?(window.frame.origin)
     }
 }

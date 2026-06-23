@@ -8,6 +8,7 @@ struct UsagePanelView: View {
 
     var onRefresh: () -> Void
     var onSetLaunchAtLogin: (Bool) -> Void
+    var onSetFloatingWindow: (Bool) -> Void
     var onSetStatusBarMetric: (StatusBarMetric, Bool) -> Void
 
     private var strings: AppStrings {
@@ -37,7 +38,7 @@ struct UsagePanelView: View {
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
         .frame(width: 340)
-        .frame(minHeight: 492, alignment: .topLeading)
+        .frame(minHeight: 524, alignment: .topLeading)
         .background(MenuMaterialBackground())
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -62,8 +63,9 @@ struct UsagePanelView: View {
     }
 
     private var settingsSection: some View {
-        VStack(spacing: 8) {
-            actionRow
+        VStack(spacing: 4) {
+            launchAtLoginRow
+            floatingWindowRow
             HStack(spacing: 12) {
                 settingsRowLabel(strings.menuBarMetrics, systemName: "menubar.rectangle")
                 Spacer()
@@ -84,6 +86,7 @@ struct UsagePanelView: View {
                 }
                 .menuStyle(.borderlessButton)
             }
+            .frame(height: 24)
         }
         .font(.subheadline)
     }
@@ -92,7 +95,7 @@ struct UsagePanelView: View {
         strings.statusBarMetricSummary(count: settings.selectedStatusBarMetrics.count)
     }
 
-    private var actionRow: some View {
+    private var launchAtLoginRow: some View {
         HStack(spacing: 12) {
             settingsRowLabel(strings.launchAtLogin, systemName: "power")
             Spacer()
@@ -102,6 +105,20 @@ struct UsagePanelView: View {
             ))
             .frame(width: 44, height: 24)
         }
+        .frame(height: 24)
+    }
+
+    private var floatingWindowRow: some View {
+        HStack(spacing: 12) {
+            settingsRowLabel(strings.floatingWindow, systemName: "macwindow.on.rectangle")
+            Spacer()
+            NativeSwitch(isOn: Binding(
+                get: { settings.floatingWindowEnabled },
+                set: { onSetFloatingWindow($0) }
+            ))
+            .frame(width: 44, height: 24)
+        }
+        .frame(height: 24)
     }
 
     private func settingsRowLabel(_ title: String, systemName: String) -> some View {

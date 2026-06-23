@@ -21,6 +21,12 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    @Published var floatingWindowEnabled: Bool {
+        didSet {
+            defaults.set(floatingWindowEnabled, forKey: Keys.floatingWindowEnabled)
+        }
+    }
+
     @Published var selectedStatusBarMetrics: [StatusBarMetric] {
         didSet {
             defaults.set(selectedStatusBarMetrics.map(\.rawValue), forKey: Keys.selectedStatusBarMetrics)
@@ -59,13 +65,18 @@ final class AppSettings: ObservableObject {
         if defaults.object(forKey: Keys.launchAtLoginEnabled) == nil {
             defaults.set(true, forKey: Keys.launchAtLoginEnabled)
         }
+        if defaults.object(forKey: Keys.floatingWindowEnabled) == nil {
+            defaults.set(false, forKey: Keys.floatingWindowEnabled)
+        }
 
         self.defaultProviderExecutablePath = defaults.string(forKey: Keys.defaultProviderExecutablePath)
             ?? Self.defaultCodexExecutablePath
         self.refreshIntervalSeconds = defaults.double(forKey: Keys.refreshIntervalSeconds)
         self.launchAtLoginEnabled = defaults.bool(forKey: Keys.launchAtLoginEnabled)
+        self.floatingWindowEnabled = defaults.bool(forKey: Keys.floatingWindowEnabled)
         self.selectedStatusBarMetrics = Self.loadStatusBarMetrics(from: defaults)
         self.language = Self.loadLanguage(from: defaults, defaultLanguage: defaultLanguage)
+        defaults.set(floatingWindowEnabled, forKey: Keys.floatingWindowEnabled)
         defaults.set(selectedStatusBarMetrics.map(\.rawValue), forKey: Keys.selectedStatusBarMetrics)
         defaults.set(language.rawValue, forKey: Keys.language)
     }
@@ -88,10 +99,32 @@ final class AppSettings: ObservableObject {
         selectedStatusBarMetrics = nextMetrics
     }
 
+    var floatingWindowOrigin: (x: Double, y: Double)? {
+        guard
+            defaults.object(forKey: Keys.floatingWindowOriginX) != nil,
+            defaults.object(forKey: Keys.floatingWindowOriginY) != nil
+        else {
+            return nil
+        }
+
+        return (
+            defaults.double(forKey: Keys.floatingWindowOriginX),
+            defaults.double(forKey: Keys.floatingWindowOriginY)
+        )
+    }
+
+    func setFloatingWindowOrigin(x: Double, y: Double) {
+        defaults.set(x, forKey: Keys.floatingWindowOriginX)
+        defaults.set(y, forKey: Keys.floatingWindowOriginY)
+    }
+
     private enum Keys {
         static let defaultProviderExecutablePath = "defaultProviderExecutablePath"
         static let refreshIntervalSeconds = "refreshIntervalSeconds"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let floatingWindowEnabled = "floatingWindowEnabled"
+        static let floatingWindowOriginX = "floatingWindowOriginX"
+        static let floatingWindowOriginY = "floatingWindowOriginY"
         static let selectedStatusBarMetrics = "selectedStatusBarMetrics"
         static let language = "language"
     }
@@ -127,6 +160,7 @@ final class AppSettings: ObservableObject {
             Keys.defaultProviderExecutablePath,
             Keys.refreshIntervalSeconds,
             Keys.launchAtLoginEnabled,
+            Keys.floatingWindowEnabled,
             Keys.selectedStatusBarMetrics
         ].contains { defaults.object(forKey: $0) != nil }
     }
