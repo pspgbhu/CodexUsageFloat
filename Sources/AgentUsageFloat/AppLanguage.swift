@@ -530,7 +530,7 @@ struct AppStrings {
         formatter.timeZone = timeZone
 
         let isWithin24Hours = abs(date.timeIntervalSince(now)) < 24 * 60 * 60
-        formatter.dateFormat = isWithin24Hours ? "HH:mm" : "MM/dd"
+        formatter.dateFormat = isWithin24Hours ? "HH:mm" : "M/dd"
         let formattedTime = formatter.string(from: date)
 
         var calendar = Calendar(identifier: .gregorian)
