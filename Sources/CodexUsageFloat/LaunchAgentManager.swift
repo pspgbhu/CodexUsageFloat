@@ -2,8 +2,8 @@ import Foundation
 import Darwin
 
 enum LaunchAgentManager {
-    static let label = "com.local.agent-usage-float"
-    private static let legacyLabel = "com.local.codex-usage-float"
+    static let label = "com.local.codex-usage-float"
+    private static let legacyLabel = "com.local.agent-usage-float"
 
     static var plistURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -35,7 +35,7 @@ enum LaunchAgentManager {
 
         let executable = Bundle.main.executableURL?.path ?? CommandLine.arguments[0]
         let logDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/AgentUsageFloat")
+            .appendingPathComponent("Library/Logs/CodexUsageFloat")
         try FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
 
         let plist: [String: Any] = [
@@ -49,7 +49,7 @@ enum LaunchAgentManager {
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         try data.write(to: plistURL, options: .atomic)
 
-        // Remove the pre-rename agent so only AgentUsageFloat runs at login.
+        // Remove the pre-rename agent so only CodexUsageFloat runs at login.
         _ = try? runLaunchctl(["bootout", "gui/\(getuid())", legacyPlistURL.path])
         if FileManager.default.fileExists(atPath: legacyPlistURL.path) {
             try? FileManager.default.removeItem(at: legacyPlistURL)

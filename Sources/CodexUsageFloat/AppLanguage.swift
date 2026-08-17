@@ -23,12 +23,7 @@ struct AppStrings {
     }
 
     var appTitle: String {
-        switch language {
-        case .english:
-            return "Agent Usage"
-        case .simplifiedChinese:
-            return "智能体用量"
-        }
+        "CodexUsageFloat"
     }
 
     var refresh: String {

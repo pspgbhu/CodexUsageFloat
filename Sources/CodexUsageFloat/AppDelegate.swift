@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func makeStatusItemImage() -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        guard let image = NSImage(systemSymbolName: "gauge", accessibilityDescription: "Agent Usage")?
+        guard let image = NSImage(systemSymbolName: "gauge", accessibilityDescription: "CodexUsageFloat")?
             .withSymbolConfiguration(configuration)
         else {
             return nil
@@ -295,7 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         positionPanelBelowStatusItem(panel)
-        panel.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
         installOutsideClickMonitors()
     }
 

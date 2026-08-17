@@ -1,4 +1,4 @@
-# AgentUsageFloat
+# CodexUsageFloat
 
 一个用于显示代码智能体用量状态的小型 macOS 菜单栏工具。当前 provider 是 Codex，底层通过本地 Codex app-server 获取数据。
 
@@ -18,7 +18,7 @@ swift test
 
 ```bash
 scripts/package-app.sh
-open dist/AgentUsageFloat.app
+open dist/CodexUsageFloat.app
 ```
 
 ## 安装登录启动 LaunchAgent
@@ -30,7 +30,7 @@ scripts/install-launch-agent.sh
 如需在不安装的情况下验证 LaunchAgent plist：
 
 ```bash
-DRY_RUN=1 PLIST_PATH=/tmp/com.local.agent-usage-float.plist scripts/install-launch-agent.sh
+DRY_RUN=1 PLIST_PATH=/tmp/com.local.codex-usage-float.plist scripts/install-launch-agent.sh
 ```
 
 ## 卸载
@@ -43,6 +43,6 @@ scripts/uninstall-launch-agent.sh
 
 - `AgentUsageCore` 负责通用用量模型和 `UsageProvider` 协议。
 - `CodexUsageProvider` 是第一个 provider 实现，优先通过 `/Applications/ChatGPT.app/Contents/Resources/codex app-server --stdio` 读取用量，并兼容旧版 `Codex.app` 路径。
-- `AgentUsageFloat` 渲染 `UsageProvider` 提供的内容，因此新增代码智能体时无需重写菜单栏 UI。
+- `CodexUsageFloat` 渲染 `UsageProvider` 提供的内容，因此新增代码智能体时无需重写菜单栏 UI。
 
 应用不会读取 `~/.codex/auth.json`，也不会持久化 token、邮箱地址或原始 provider 响应。

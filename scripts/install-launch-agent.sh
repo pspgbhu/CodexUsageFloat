@@ -2,19 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="${APP_PATH:-$ROOT_DIR/dist/AgentUsageFloat.app}"
-LABEL="com.local.agent-usage-float"
-OLD_LABEL="com.local.codex-usage-float"
+APP_PATH="${APP_PATH:-$ROOT_DIR/dist/CodexUsageFloat.app}"
+LABEL="com.local.codex-usage-float"
+OLD_LABEL="com.local.agent-usage-float"
 DRY_RUN="${DRY_RUN:-0}"
 PLIST_PATH="${PLIST_PATH:-$HOME/Library/LaunchAgents/$LABEL.plist}"
 OLD_PLIST_PATH="$HOME/Library/LaunchAgents/$OLD_LABEL.plist"
-LOG_DIR="$HOME/Library/Logs/AgentUsageFloat"
+LOG_DIR="$HOME/Library/Logs/CodexUsageFloat"
 
 if [[ ! -d "$APP_PATH" ]]; then
   "$ROOT_DIR/scripts/package-app.sh" >/dev/null
 fi
 
-EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/AgentUsageFloat"
+EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/CodexUsageFloat"
 if [[ ! -x "$EXECUTABLE_PATH" ]]; then
   echo "Executable not found: $EXECUTABLE_PATH" >&2
   exit 1
@@ -55,7 +55,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   exit 0
 fi
 
-# Remove the pre-rename LaunchAgent so only AgentUsageFloat runs at login.
+# Remove the pre-rename LaunchAgent so only CodexUsageFloat runs at login.
 launchctl bootout "gui/$UID" "$OLD_PLIST_PATH" 2>/dev/null || true
 rm -f "$OLD_PLIST_PATH"
 launchctl bootout "gui/$UID" "$PLIST_PATH" 2>/dev/null || true

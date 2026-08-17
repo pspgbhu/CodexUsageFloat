@@ -3,18 +3,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentUsageFloat",
+    name: "CodexUsageFloat",
     platforms: [
         .macOS(.v13)
     ],
     products: [
         .library(name: "AgentUsageCore", targets: ["AgentUsageCore"]),
-        .executable(name: "AgentUsageFloat", targets: ["AgentUsageFloat"])
+        .executable(name: "CodexUsageFloat", targets: ["CodexUsageFloat"])
     ],
     targets: [
         .target(name: "AgentUsageCore"),
         .executableTarget(
-            name: "AgentUsageFloat",
+            name: "CodexUsageFloat",
             dependencies: ["AgentUsageCore"]
         ),
         .testTarget(

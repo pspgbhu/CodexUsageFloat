@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LABEL="com.local.agent-usage-float"
-OLD_LABEL="com.local.codex-usage-float"
+LABEL="com.local.codex-usage-float"
+OLD_LABEL="com.local.agent-usage-float"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 OLD_PLIST_PATH="$HOME/Library/LaunchAgents/$OLD_LABEL.plist"
 

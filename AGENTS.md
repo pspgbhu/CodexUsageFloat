@@ -2,25 +2,25 @@
 
 ## 项目概览
 
-本项目是 `AgentUsageFloat`，一个用于显示代码智能体用量状态的 macOS 菜单栏工具。
+本项目是 `CodexUsageFloat`，一个用于显示代码智能体用量状态的 macOS 菜单栏工具。
 
 当前实现通过 `CodexUsageProvider` 支持 Codex，但应用设计上预留了后续支持更多代码智能体的能力。
 
 ## 架构规则
 
 - 通用用量模型和协议放在 `Sources/AgentUsageCore`。
-- UI 代码放在 `Sources/AgentUsageFloat`。
+- UI 代码放在 `Sources/CodexUsageFloat`。
 - UI 必须依赖通用的 `UsageProvider` 协议，不能直接依赖 Codex 专用的 payload。
 - Codex 专用的 API 形状、JSON-RPC 方法和响应映射应放在 `CodexUsageProvider`、`CodexPayloads` 和 `CodexUsageMapper` 中。
 - 未来新增 provider 时，应添加自己的 provider 实现和 mapper，不要围绕智能体名称扩展 UI 条件分支。
 
 ## 命名规则
 
-- 项目、包、应用 bundle、可执行文件和 LaunchAgent 都使用 `AgentUsageFloat`。
+- 项目、包、应用 bundle、可执行文件和 LaunchAgent 都使用 `CodexUsageFloat`。
 - 核心模块名为 `AgentUsageCore`。
-- `Codex*` 命名只适用于 Codex provider 的实现细节和 Codex 专用测试。
-- 不要重新引入 `CodexUsageFloat` 或 `CodexUsageCore` 作为项目级名称。
-- 现存的 `com.local.codex-usage-float`、`CodexUsageFloat.app` 和旧版 `codexCLIPath` 引用只用于迁移清理。除非有意退役迁移路径，否则不要移除它们。
+- 除项目名 `CodexUsageFloat` 外，其他 `Codex*` 命名只适用于 Codex provider 的实现细节和 Codex 专用测试。
+- 不要将核心模块重命名为 `CodexUsageCore`。
+- 现存的 `com.local.agent-usage-float`、`AgentUsageFloat.app` 和旧版 `codexCLIPath` 引用只用于迁移清理。除非有意退役迁移路径，否则不要移除它们。
 
 ## 构建与验证
 
@@ -45,9 +45,9 @@ xcrun --sdk macosx --show-sdk-platform-path
 ```bash
 swiftc -typecheck Sources/AgentUsageCore/*.swift
 swiftc -emit-module -enable-testing -module-name AgentUsageCore Sources/AgentUsageCore/*.swift -emit-module-path /tmp/AgentUsageCore.swiftmodule -parse-as-library
-swiftc -typecheck -parse-as-library -I /tmp Sources/AgentUsageFloat/*.swift
+swiftc -typecheck -parse-as-library -I /tmp Sources/CodexUsageFloat/*.swift
 scripts/package-app.sh
-DRY_RUN=1 PLIST_PATH=/tmp/com.local.agent-usage-float.plist scripts/install-launch-agent.sh
+DRY_RUN=1 PLIST_PATH=/tmp/com.local.codex-usage-float.plist scripts/install-launch-agent.sh
 ```
 
 ## 隐私与数据处理
@@ -58,8 +58,8 @@ DRY_RUN=1 PLIST_PATH=/tmp/com.local.agent-usage-float.plist scripts/install-laun
 
 ## LaunchAgent 规则
 
-- 当前 LaunchAgent label：`com.local.agent-usage-float`。
-- 为支持从原项目名升级，安装和卸载路径中应保留旧的 `com.local.codex-usage-float` 清理逻辑。
+- 当前 LaunchAgent label：`com.local.codex-usage-float`。
+- 为支持从原项目名升级，安装和卸载路径中应保留旧的 `com.local.agent-usage-float` 清理逻辑。
 - 如果应用路径发生变化，应重新生成或重新安装 LaunchAgent，使其指向当前应用 bundle。
 
 ## UI 规则

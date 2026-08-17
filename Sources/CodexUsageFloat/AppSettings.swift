@@ -41,7 +41,7 @@ final class AppSettings: ObservableObject {
     }
 
     private let defaults: UserDefaults
-    private static let legacyDefaultsSuiteName = "com.local.codex-usage-float"
+    private static let legacyDefaultsSuiteName = "com.local.agent-usage-float"
     private static let defaultStatusBarMetrics: [StatusBarMetric] = [.primaryRemaining, .resetTime]
     private static let defaultRefreshIntervalSeconds: TimeInterval = 30.0
     private static let previousDefaultRefreshIntervalSeconds: TimeInterval = 60.0

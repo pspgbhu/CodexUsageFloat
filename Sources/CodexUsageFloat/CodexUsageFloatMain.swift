@@ -1,7 +1,7 @@
 import AppKit
 
 @main
-struct AgentUsageFloatMain {
+struct CodexUsageFloatMain {
     @MainActor
     static func main() {
         let app = NSApplication.shared

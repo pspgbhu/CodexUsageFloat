@@ -122,8 +122,8 @@ public actor CodexUsageProvider: UsageProvider {
 
         let params: [String: Any] = [
             "clientInfo": [
-                "name": "agent-usage-float",
-                "title": "Agent Usage Float",
+                "name": "codex-usage-float",
+                "title": "CodexUsageFloat",
                 "version": "0.1.0"
             ],
             "capabilities": [

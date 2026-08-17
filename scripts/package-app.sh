@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="AgentUsageFloat"
+APP_NAME="CodexUsageFloat"
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -33,13 +33,13 @@ else
     -I "$SWIFTC_BUILD_DIR" \
     -L "$SWIFTC_BUILD_DIR" \
     -lAgentUsageCore \
-    Sources/AgentUsageFloat/*.swift \
+    Sources/CodexUsageFloat/*.swift \
     -o "$SWIFTC_BUILD_DIR/$APP_NAME"
   BINARY_PATH="$SWIFTC_BUILD_DIR/$APP_NAME"
 fi
 
 # Remove the pre-rename app bundle if it exists.
-rm -rf "$ROOT_DIR/dist/CodexUsageFloat.app"
+rm -rf "$ROOT_DIR/dist/AgentUsageFloat.app"
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BINARY_PATH" "$MACOS_DIR/$APP_NAME"
@@ -55,11 +55,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>com.local.agent-usage-float</string>
+  <string>com.local.codex-usage-float</string>
   <key>CFBundleName</key>
-  <string>Agent Usage</string>
+  <string>CodexUsageFloat</string>
   <key>CFBundleDisplayName</key>
-  <string>Agent Usage</string>
+  <string>CodexUsageFloat</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon.icns</string>
   <key>CFBundlePackageType</key>
