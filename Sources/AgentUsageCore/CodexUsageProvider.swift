@@ -69,10 +69,10 @@ public actor CodexUsageProvider: UsageProvider {
     private var nextAllowedStart = Date.distantPast
 
     public init(
-        executablePath: String = "/Applications/Codex.app/Contents/Resources/codex",
+        executablePath: String? = nil,
         requestTimeoutSeconds: TimeInterval = 12
     ) {
-        self.executablePath = executablePath
+        self.executablePath = CodexExecutableLocator.resolve(configuredPath: executablePath)
         self.requestTimeoutSeconds = requestTimeoutSeconds
     }
 

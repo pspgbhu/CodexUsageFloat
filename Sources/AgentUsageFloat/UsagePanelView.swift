@@ -172,20 +172,15 @@ struct UsagePanelView: View {
             sectionTitle(strings.limits)
             labelValue(strings.bucket, strings.localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
             labelValue(strings.metricTitle(.primaryRemaining), strings.localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
-            labelValue(strings.metricTitle(.secondaryRemaining), strings.localizedValue(UsageFormatting.percent(limits?.secondary?.remainingPercent)))
 
             if let individual = limits?.individualLimit {
                 Divider()
                 labelValue(strings.metricTitle(.spendRemaining), "\(individual.remainingPercent)%", prominent: true)
                 labelValue(strings.spendLimit, individual.limit)
                 labelValue(strings.spendUsed, individual.used)
-                labelValue(strings.metricTitle(.resetTime), strings.dateTime(individual.resetsAt))
-                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
-            } else if let reset = limits?.primary?.resetsAt {
-                labelValue(strings.metricTitle(.resetTime), strings.dateTime(reset))
-                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
+                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(individual.resetsAt))
             } else {
-                labelValue(strings.metricTitle(.secondaryResetTime), strings.adaptiveResetTime(limits?.secondary?.resetsAt))
+                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(limits?.primary?.resetsAt))
             }
         }
     }

@@ -42,7 +42,7 @@ scripts/uninstall-launch-agent.sh
 应用采用面向 provider 的设计：
 
 - `AgentUsageCore` 负责通用用量模型和 `UsageProvider` 协议。
-- `CodexUsageProvider` 是第一个 provider 实现，通过 `/Applications/Codex.app/Contents/Resources/codex app-server --stdio` 读取用量。
+- `CodexUsageProvider` 是第一个 provider 实现，优先通过 `/Applications/ChatGPT.app/Contents/Resources/codex app-server --stdio` 读取用量，并兼容旧版 `Codex.app` 路径。
 - `AgentUsageFloat` 渲染 `UsageProvider` 提供的内容，因此新增代码智能体时无需重写菜单栏 UI。
 
 应用不会读取 `~/.codex/auth.json`，也不会持久化 token、邮箱地址或原始 provider 响应。

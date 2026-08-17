@@ -3,10 +3,8 @@ import Foundation
 
 enum StatusBarMetric: String, CaseIterable, Identifiable {
     case primaryRemaining
-    case secondaryRemaining
     case spendRemaining
     case resetTime
-    case secondaryResetTime
     case credits
     case todayTokens
     case lifetimeTokens
@@ -21,14 +19,10 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         switch self {
         case .primaryRemaining:
             return "P"
-        case .secondaryRemaining:
-            return "S"
         case .spendRemaining:
             return "Spend"
         case .resetTime:
             return "R"
-        case .secondaryResetTime:
-            return "SR"
         case .credits:
             return "C"
         case .todayTokens:
@@ -55,13 +49,10 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         let strings = AppStrings(language: language)
         switch self {
         case .resetTime:
-            return strings.dateTime(
+            return strings.adaptiveResetTime(
                 snapshot?.limits?.individualLimit?.resetsAt
                     ?? snapshot?.limits?.primary?.resetsAt
-                    ?? snapshot?.limits?.secondary?.resetsAt
             )
-        case .secondaryResetTime:
-            return strings.adaptiveResetTime(snapshot?.limits?.secondary?.resetsAt)
         case .currentStreakDays:
             guard let days = snapshot?.tokenUsage?.currentStreakDays else {
                 return strings.unavailable
@@ -76,18 +67,13 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         switch self {
         case .primaryRemaining:
             return UsageFormatting.percent(snapshot?.limits?.primary?.remainingPercent)
-        case .secondaryRemaining:
-            return UsageFormatting.percent(snapshot?.limits?.secondary?.remainingPercent)
         case .spendRemaining:
             return UsageFormatting.percent(snapshot?.limits?.individualLimit?.remainingPercent)
         case .resetTime:
-            return UsageFormatting.dateTime(
+            return UsageFormatting.adaptiveResetTime(
                 snapshot?.limits?.individualLimit?.resetsAt
                     ?? snapshot?.limits?.primary?.resetsAt
-                    ?? snapshot?.limits?.secondary?.resetsAt
             )
-        case .secondaryResetTime:
-            return UsageFormatting.adaptiveResetTime(snapshot?.limits?.secondary?.resetsAt)
         case .credits:
             return UsageFormatting.credits(snapshot?.credits)
         case .todayTokens:

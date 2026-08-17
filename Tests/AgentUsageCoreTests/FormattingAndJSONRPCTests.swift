@@ -57,6 +57,15 @@ final class FormattingAndJSONRPCTests: XCTestCase {
         XCTAssertEqual(UsageFormatting.adaptiveResetTime(reset, now: now, timeZone: calendar.timeZone), "3/06")
     }
 
+    func testAdaptiveResetTimeUsesDateAtExactly24Hours() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 8))!
+        let reset = calendar.date(from: DateComponents(year: 2026, month: 6, day: 16, hour: 8))!
+
+        XCTAssertEqual(UsageFormatting.adaptiveResetTime(reset, now: now, timeZone: calendar.timeZone), "6/16")
+    }
+
     func testJSONRPCResultParsing() throws {
         let response = try JSONRPCResponseParser.parseResultLine(Data("""
         {"id": 2, "result": {"ok": true}}

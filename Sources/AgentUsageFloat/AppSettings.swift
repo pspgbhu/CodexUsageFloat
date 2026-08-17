@@ -1,3 +1,4 @@
+import AgentUsageCore
 import Combine
 import Foundation
 
@@ -41,7 +42,7 @@ final class AppSettings: ObservableObject {
 
     private let defaults: UserDefaults
     private static let legacyDefaultsSuiteName = "com.local.codex-usage-float"
-    private static let defaultCodexExecutablePath = "/Applications/Codex.app/Contents/Resources/codex"
+    private static let defaultStatusBarMetrics: [StatusBarMetric] = [.primaryRemaining, .resetTime]
     private static let defaultRefreshIntervalSeconds: TimeInterval = 30.0
     private static let previousDefaultRefreshIntervalSeconds: TimeInterval = 60.0
 
@@ -54,9 +55,7 @@ final class AppSettings: ObservableObject {
             ? .simplifiedChinese
             : .english
 
-        if defaults.object(forKey: Keys.defaultProviderExecutablePath) == nil {
-            defaults.set(Self.defaultCodexExecutablePath, forKey: Keys.defaultProviderExecutablePath)
-        }
+        Self.migrateProviderExecutablePathIfNeeded(in: defaults)
         if defaults.object(forKey: Keys.refreshIntervalSeconds) == nil {
             defaults.set(Self.defaultRefreshIntervalSeconds, forKey: Keys.refreshIntervalSeconds)
         } else if defaults.double(forKey: Keys.refreshIntervalSeconds) == Self.previousDefaultRefreshIntervalSeconds {
@@ -70,7 +69,7 @@ final class AppSettings: ObservableObject {
         }
 
         self.defaultProviderExecutablePath = defaults.string(forKey: Keys.defaultProviderExecutablePath)
-            ?? Self.defaultCodexExecutablePath
+            ?? CodexExecutableLocator.defaultExecutablePath
         self.refreshIntervalSeconds = defaults.double(forKey: Keys.refreshIntervalSeconds)
         self.launchAtLoginEnabled = defaults.bool(forKey: Keys.launchAtLoginEnabled)
         self.floatingWindowEnabled = defaults.bool(forKey: Keys.floatingWindowEnabled)
@@ -137,11 +136,11 @@ final class AppSettings: ObservableObject {
 
     private static func loadStatusBarMetrics(from defaults: UserDefaults) -> [StatusBarMetric] {
         guard let rawValues = defaults.stringArray(forKey: Keys.selectedStatusBarMetrics) else {
-            return [.primaryRemaining]
+            return defaultStatusBarMetrics
         }
 
         let metrics = rawValues.compactMap(StatusBarMetric.init(rawValue:))
-        return rawValues.isEmpty ? [] : (metrics.isEmpty ? [.primaryRemaining] : metrics)
+        return rawValues.isEmpty ? [] : (metrics.isEmpty ? defaultStatusBarMetrics : metrics)
     }
 
     private static func loadLanguage(from defaults: UserDefaults, defaultLanguage: AppLanguage) -> AppLanguage {
@@ -188,6 +187,15 @@ final class AppSettings: ObservableObject {
             from: legacyDefaults,
             to: defaults
         )
+    }
+
+    private static func migrateProviderExecutablePathIfNeeded(in defaults: UserDefaults) {
+        let configuredPath = defaults.string(forKey: Keys.defaultProviderExecutablePath)
+        let resolvedPath = CodexExecutableLocator.resolve(configuredPath: configuredPath)
+
+        if configuredPath != resolvedPath {
+            defaults.set(resolvedPath, forKey: Keys.defaultProviderExecutablePath)
+        }
     }
 
     private static func copyLegacyValueIfMissing(

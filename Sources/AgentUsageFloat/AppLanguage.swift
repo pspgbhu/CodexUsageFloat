@@ -265,13 +265,6 @@ struct AppStrings {
             case .simplifiedChinese:
                 return "主额度剩余"
             }
-        case .secondaryRemaining:
-            switch language {
-            case .english:
-                return "Secondary remaining"
-            case .simplifiedChinese:
-                return "次额度剩余"
-            }
         case .spendRemaining:
             switch language {
             case .english:
@@ -285,13 +278,6 @@ struct AppStrings {
                 return "Reset time"
             case .simplifiedChinese:
                 return "重置时间"
-            }
-        case .secondaryResetTime:
-            switch language {
-            case .english:
-                return "Secondary reset"
-            case .simplifiedChinese:
-                return "次额度重置时间"
             }
         case .credits:
             switch language {
@@ -521,24 +507,6 @@ struct AppStrings {
         now: Date = Date(),
         timeZone: TimeZone = .current
     ) -> String {
-        guard let date else {
-            return unavailable
-        }
-
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = timeZone
-
-        let isWithin24Hours = abs(date.timeIntervalSince(now)) < 24 * 60 * 60
-        formatter.dateFormat = isWithin24Hours ? "HH:mm" : "M/dd"
-        let formattedTime = formatter.string(from: date)
-
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        if isWithin24Hours, date > now, !calendar.isDate(date, inSameDayAs: now) {
-            return "\(formattedTime)(+1)"
-        }
-
-        return formattedTime
+        localizedValue(UsageFormatting.adaptiveResetTime(date, now: now, timeZone: timeZone))
     }
 }
