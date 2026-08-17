@@ -2,6 +2,12 @@
 
 一个用于显示代码智能体用量状态的小型 macOS 菜单栏工具。当前 provider 是 Codex，底层通过本地 Codex app-server 获取数据。
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/images/codex-usage-float-panel.png" alt="CodexUsageFloat 用量面板截图（示例数据）" width="388">
+</p>
+
 ## 构建
 
 ```bash
