@@ -500,8 +500,9 @@ struct AppStrings {
     func adaptiveResetTime(
         _ date: Date?,
         now: Date = Date(),
-        timeZone: TimeZone = .current
+        timeZone: TimeZone = .current,
+        includeTimeWithDate: Bool = false
     ) -> String {
-        localizedValue(UsageFormatting.adaptiveResetTime(date, now: now, timeZone: timeZone))
+        localizedValue(UsageFormatting.adaptiveResetTime(date, now: now, timeZone: timeZone, includeTimeWithDate: includeTimeWithDate))
     }
 }

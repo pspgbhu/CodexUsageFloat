@@ -178,9 +178,9 @@ struct UsagePanelView: View {
                 labelValue(strings.metricTitle(.spendRemaining), "\(individual.remainingPercent)%", prominent: true)
                 labelValue(strings.spendLimit, individual.limit)
                 labelValue(strings.spendUsed, individual.used)
-                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(individual.resetsAt))
+                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(individual.resetsAt, includeTimeWithDate: true))
             } else {
-                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(limits?.primary?.resetsAt))
+                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(limits?.primary?.resetsAt, includeTimeWithDate: true))
             }
         }
     }

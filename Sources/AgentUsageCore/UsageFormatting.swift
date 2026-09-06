@@ -74,7 +74,8 @@ public enum UsageFormatting {
     public static func adaptiveResetTime(
         _ date: Date?,
         now: Date = Date(),
-        timeZone: TimeZone = .current
+        timeZone: TimeZone = .current,
+        includeTimeWithDate: Bool = false
     ) -> String {
         guard let date else {
             return "Unavailable"
@@ -85,7 +86,7 @@ public enum UsageFormatting {
         formatter.timeZone = timeZone
 
         let isWithin24Hours = abs(date.timeIntervalSince(now)) < 24 * 60 * 60
-        formatter.dateFormat = isWithin24Hours ? "HH:mm" : "M/dd"
+        formatter.dateFormat = isWithin24Hours ? "HH:mm" : (includeTimeWithDate ? "M/dd HH:mm" : "M/dd")
         let formattedTime = formatter.string(from: date)
 
         var calendar = Calendar(identifier: .gregorian)
