@@ -61,6 +61,12 @@ public struct UsageSnapshot: Equatable {
     public var limits: LimitsInfo?
     public var tokenUsage: TokenUsageInfo?
     public var status: UsageStatus
+    public var subscription: SubscriptionInfo?
+
+    public var visibleQuotaPeriods: [UsageQuotaPeriod] {
+        subscription?.visibleQuotaPeriods
+            ?? UsageQuotaPeriod.allCases.filter { limits?.quotaWindows[$0] != nil }
+    }
 
     public init(
         provider: UsageProviderDescriptor,
@@ -69,7 +75,8 @@ public struct UsageSnapshot: Equatable {
         credits: CreditsInfo?,
         limits: LimitsInfo?,
         tokenUsage: TokenUsageInfo?,
-        status: UsageStatus
+        status: UsageStatus,
+        subscription: SubscriptionInfo? = nil
     ) {
         self.provider = provider
         self.refreshedAt = refreshedAt
@@ -78,6 +85,7 @@ public struct UsageSnapshot: Equatable {
         self.limits = limits
         self.tokenUsage = tokenUsage
         self.status = status
+        self.subscription = subscription
     }
 
     public func markingStale(_ message: String) -> UsageSnapshot {
@@ -88,8 +96,24 @@ public struct UsageSnapshot: Equatable {
             credits: credits,
             limits: limits,
             tokenUsage: tokenUsage,
-            status: .stale(message)
+            status: .stale(message),
+            subscription: subscription
         )
+    }
+}
+
+public enum UsageQuotaPeriod: String, CaseIterable, Hashable {
+    case fiveHours
+    case week
+}
+
+public struct SubscriptionInfo: Equatable {
+    public var displayName: String
+    public var visibleQuotaPeriods: [UsageQuotaPeriod]
+
+    public init(displayName: String, visibleQuotaPeriods: [UsageQuotaPeriod]) {
+        self.displayName = displayName
+        self.visibleQuotaPeriods = visibleQuotaPeriods
     }
 }
 
@@ -123,6 +147,7 @@ public struct LimitsInfo: Equatable {
     public var secondary: LimitWindowInfo?
     public var individualLimit: SpendControlInfo?
     public var rateLimitReachedType: String?
+    public var quotaWindows: [UsageQuotaPeriod: LimitWindowInfo]
 
     public init(
         limitID: String?,
@@ -131,7 +156,8 @@ public struct LimitsInfo: Equatable {
         primary: LimitWindowInfo?,
         secondary: LimitWindowInfo?,
         individualLimit: SpendControlInfo?,
-        rateLimitReachedType: String?
+        rateLimitReachedType: String?,
+        quotaWindows: [UsageQuotaPeriod: LimitWindowInfo] = [:]
     ) {
         self.limitID = limitID
         self.limitName = limitName
@@ -140,6 +166,7 @@ public struct LimitsInfo: Equatable {
         self.secondary = secondary
         self.individualLimit = individualLimit
         self.rateLimitReachedType = rateLimitReachedType
+        self.quotaWindows = quotaWindows
     }
 }
 
@@ -173,6 +200,19 @@ public struct SpendControlInfo: Equatable {
     }
 }
 
+public struct DailyTokenUsage: Equatable, Identifiable {
+    public var date: Date
+    /// Nil means the provider did not report usage for this day.
+    public var tokens: Int64?
+
+    public var id: Date { date }
+
+    public init(date: Date, tokens: Int64?) {
+        self.date = date
+        self.tokens = tokens
+    }
+}
+
 public struct TokenUsageInfo: Equatable {
     public var todayTokens: Int64?
     public var lifetimeTokens: Int64?
@@ -180,6 +220,7 @@ public struct TokenUsageInfo: Equatable {
     public var longestRunningTurnSeconds: Int64?
     public var currentStreakDays: Int64?
     public var longestStreakDays: Int64?
+    public var dailyUsage: [DailyTokenUsage]?
 
     public init(
         todayTokens: Int64?,
@@ -187,7 +228,8 @@ public struct TokenUsageInfo: Equatable {
         peakDailyTokens: Int64?,
         longestRunningTurnSeconds: Int64?,
         currentStreakDays: Int64?,
-        longestStreakDays: Int64?
+        longestStreakDays: Int64?,
+        dailyUsage: [DailyTokenUsage]? = nil
     ) {
         self.todayTokens = todayTokens
         self.lifetimeTokens = lifetimeTokens
@@ -195,6 +237,7 @@ public struct TokenUsageInfo: Equatable {
         self.longestRunningTurnSeconds = longestRunningTurnSeconds
         self.currentStreakDays = currentStreakDays
         self.longestStreakDays = longestStreakDays
+        self.dailyUsage = dailyUsage
     }
 }
 

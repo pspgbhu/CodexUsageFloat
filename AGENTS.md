@@ -2,9 +2,9 @@
 
 ## 项目概览
 
-本项目是 `CodexUsageFloat`，一个用于显示代码智能体用量状态的 macOS 菜单栏工具。
+本项目是 `CodexUsageFloat`，一个仅用于显示 Codex 额度与用量状态的 macOS 菜单栏工具。
 
-当前实现通过 `CodexUsageProvider` 支持 Codex，但应用设计上预留了后续支持更多代码智能体的能力。
+产品范围限定为 Codex，通过 `CodexUsageProvider` 获取数据，不扩展其他代码智能体。
 
 ## 架构规则
 
@@ -12,7 +12,7 @@
 - UI 代码放在 `Sources/CodexUsageFloat`。
 - UI 必须依赖通用的 `UsageProvider` 协议，不能直接依赖 Codex 专用的 payload。
 - Codex 专用的 API 形状、JSON-RPC 方法和响应映射应放在 `CodexUsageProvider`、`CodexPayloads` 和 `CodexUsageMapper` 中。
-- 未来新增 provider 时，应添加自己的 provider 实现和 mapper，不要围绕智能体名称扩展 UI 条件分支。
+- 保留数据获取、标准化模型和 UI 的分层，不因仅支持 Codex 而将原始 payload 直接传入 UI。
 
 ## 命名规则
 

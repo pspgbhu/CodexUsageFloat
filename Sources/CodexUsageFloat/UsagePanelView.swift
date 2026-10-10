@@ -3,6 +3,8 @@ import AppKit
 import SwiftUI
 
 struct UsagePanelView: View {
+    static let width: CGFloat = 340
+
     @ObservedObject var viewModel: UsageViewModel
     @ObservedObject var settings: AppSettings
 
@@ -16,17 +18,23 @@ struct UsagePanelView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             header
 
             if let snapshot = viewModel.snapshot {
-                statusRow(snapshot.status)
-                creditsSection(snapshot)
-                limitsSection(snapshot.limits)
-                tokenSection(snapshot.tokenUsage)
+                if snapshot.status != .fresh {
+                    statusRow(snapshot.status)
+                }
+                accountSection(snapshot)
+                Divider()
+                if !snapshot.visibleQuotaPeriods.isEmpty {
+                    limitsSection(snapshot)
+                    Divider()
+                }
+                TokenUsageChart(dailyUsage: snapshot.tokenUsage?.dailyUsage, strings: strings)
                 Divider()
                 settingsSection
-                footer(snapshot.refreshedAt)
+                footer(snapshot)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 120)
@@ -34,11 +42,11 @@ struct UsagePanelView: View {
                 settingsSection
             }
         }
-        .padding(.top, 10)
-        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .frame(width: 340)
-        .frame(minHeight: 524, alignment: .topLeading)
+        .frame(width: Self.width, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
         .background(MenuMaterialBackground())
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
@@ -50,15 +58,11 @@ struct UsagePanelView: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "gauge.with.dots.needle.bottom.50percent")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
             Text(strings.appTitle)
-                .font(.headline)
+                .font(.system(size: 13, weight: .semibold))
             Spacer()
-            iconButton(
-                systemName: viewModel.isRefreshing ? "arrow.clockwise.circle.fill" : "arrow.clockwise",
-                action: onRefresh,
-                help: strings.refresh
-            )
+            refreshButton
         }
     }
 
@@ -77,7 +81,7 @@ struct UsagePanelView: View {
                     }
                     Divider()
 
-                    ForEach(StatusBarMetric.allCases) { metric in
+                    ForEach(StatusBarMetric.available(for: viewModel.snapshot)) { metric in
                         Toggle(strings.metricTitle(metric), isOn: Binding(
                             get: { settings.isStatusBarMetricEnabled(metric) },
                             set: { onSetStatusBarMetric(metric, $0) }
@@ -88,7 +92,7 @@ struct UsagePanelView: View {
             }
             .frame(height: 24)
         }
-        .font(.subheadline)
+        .font(.system(size: 12, weight: .regular))
     }
 
     private var statusBarMetricSummary: String {
@@ -124,6 +128,7 @@ struct UsagePanelView: View {
     private func settingsRowLabel(_ title: String, systemName: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: systemName)
+                .foregroundStyle(.secondary)
                 .frame(width: 20, alignment: .center)
             Text(title)
         }
@@ -149,103 +154,107 @@ struct UsagePanelView: View {
         }
     }
 
-    private func creditsSection(_ snapshot: UsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            labelValue(strings.credits, strings.localizedValue(UsageFormatting.credits(snapshot.credits)), prominent: true)
+    private func accountSection(_ snapshot: UsageSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            labelValue(strings.subscriptionType, snapshot.subscription?.displayName ?? strings.unavailable)
+            labelValue(strings.credits, strings.localizedValue(UsageFormatting.credits(snapshot.credits)))
+        }
+    }
 
-            if let credits = snapshot.credits {
-                HStack(spacing: 10) {
-                    chip(credits.hasCredits ? strings.available : strings.noCredits)
-                    if credits.unlimited {
-                        chip(strings.unlimited)
-                    }
-                    if let plan = snapshot.account?.planType ?? snapshot.limits?.planType {
-                        chip(plan)
+    private func limitsSection(_ snapshot: UsageSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(snapshot.visibleQuotaPeriods, id: \.self) { period in
+                quotaRow(period, window: snapshot.limits?.quotaWindows[period])
+            }
+        }
+    }
+
+    private func quotaRow(_ period: UsageQuotaPeriod, window: LimitWindowInfo?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(strings.quotaTitle(period))
+                    .font(.system(size: 12, weight: .medium))
+                Spacer(minLength: 12)
+                Text(strings.localizedValue(UsageFormatting.percent(window?.remainingPercent)))
+                    .font(.system(size: window == nil ? 12 : 20, weight: .semibold))
+                    .monospacedDigit()
+            }
+
+            if let window {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.08))
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.85))
+                            .frame(width: geometry.size.width * CGFloat(window.remainingPercent) / 100)
                     }
                 }
+                .frame(height: 4)
+                .accessibilityHidden(true)
             }
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(strings.metricTitle(.resetTime))
+                Spacer(minLength: 12)
+                Text(strings.adaptiveResetTime(window?.resetsAt, includeTimeWithDate: true))
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+            }
+            .font(.system(size: 11, weight: .regular))
+            .foregroundStyle(.secondary)
         }
     }
 
-    private func limitsSection(_ limits: LimitsInfo?) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionTitle(strings.limits)
-            labelValue(strings.bucket, strings.localizedValue(limits?.limitName ?? limits?.limitID ?? "Unavailable"))
-            labelValue(strings.metricTitle(.primaryRemaining), strings.localizedValue(UsageFormatting.percent(limits?.primary?.remainingPercent)), prominent: true)
-
-            if let individual = limits?.individualLimit {
-                Divider()
-                labelValue(strings.metricTitle(.spendRemaining), "\(individual.remainingPercent)%", prominent: true)
-                labelValue(strings.spendLimit, individual.limit)
-                labelValue(strings.spendUsed, individual.used)
-                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(individual.resetsAt, includeTimeWithDate: true))
-            } else {
-                labelValue(strings.metricTitle(.resetTime), strings.adaptiveResetTime(limits?.primary?.resetsAt, includeTimeWithDate: true))
-            }
-        }
-    }
-
-    private func tokenSection(_ tokenUsage: TokenUsageInfo?) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionTitle(strings.tokenSectionTitle)
-            labelValue(strings.today, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.todayTokens)), prominent: true)
-            labelValue(strings.lifetime, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.lifetimeTokens)))
-            labelValue(strings.peakDay, strings.localizedValue(UsageFormatting.tokenCount(tokenUsage?.peakDailyTokens)))
-
-            if let streak = tokenUsage?.currentStreakDays {
-                labelValue(strings.metricTitle(.currentStreakDays), strings.days(streak))
-            }
-        }
-    }
-
-    private func footer(_ refreshedAt: Date) -> some View {
-        HStack {
-            Text("\(strings.updatedAtPrefix) \(strings.timeWithSeconds(refreshedAt))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private func footer(_ snapshot: UsageSnapshot) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(statusColor(snapshot.status))
+                .frame(width: 6, height: 6)
+                .help(strings.statusTitle(snapshot.status))
+                .accessibilityLabel(strings.statusTitle(snapshot.status))
+            Text("\(strings.updatedAtPrefix) \(strings.timeWithSeconds(snapshot.refreshedAt))")
             Spacer()
             Text("\(Int(settings.refreshIntervalSeconds))s")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
+        .font(.system(size: 10, weight: .regular))
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
     }
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-    }
-
-    private func labelValue(_ label: String, _ value: String, prominent: Bool = false) -> some View {
+    private func labelValue(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
             Text(value)
-                .font(.subheadline.weight(.semibold))
+                .fontWeight(.medium)
                 .monospacedDigit()
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
         }
-        .font(.subheadline)
+        .font(.system(size: 12, weight: .regular))
     }
 
-    private func chip(_ text: String) -> some View {
-        Text(text)
-            .font(.caption2.weight(.medium))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Color.primary.opacity(0.08), in: Capsule())
-    }
+    private var refreshButton: some View {
+        Button(action: onRefresh) {
+            ZStack {
+                Image(systemName: "arrow.clockwise")
+                    .opacity(viewModel.isRefreshing ? 0 : 1)
 
-    private func iconButton(systemName: String, action: @escaping () -> Void, help: String) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .frame(width: 20, height: 20)
+                if viewModel.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 16, height: 16)
+                }
+            }
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
-        .help(help)
+        .disabled(viewModel.isRefreshing)
+        .help(viewModel.isRefreshing ? strings.refreshing : strings.refresh)
+        .accessibilityLabel(viewModel.isRefreshing ? strings.refreshing : strings.refresh)
+        .transaction { $0.animation = nil }
     }
 
     private func statusColor(_ status: UsageStatus) -> Color {

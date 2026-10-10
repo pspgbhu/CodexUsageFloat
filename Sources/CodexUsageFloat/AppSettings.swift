@@ -42,7 +42,7 @@ final class AppSettings: ObservableObject {
 
     private let defaults: UserDefaults
     private static let legacyDefaultsSuiteName = "com.local.agent-usage-float"
-    private static let defaultStatusBarMetrics: [StatusBarMetric] = [.primaryRemaining, .resetTime]
+    private static let defaultStatusBarMetrics: [StatusBarMetric] = [.fiveHourRemaining, .weeklyRemaining, .resetTime]
     private static let defaultRefreshIntervalSeconds: TimeInterval = 30.0
     private static let previousDefaultRefreshIntervalSeconds: TimeInterval = 60.0
 
@@ -82,6 +82,19 @@ final class AppSettings: ObservableObject {
 
     func isStatusBarMetricEnabled(_ metric: StatusBarMetric) -> Bool {
         selectedStatusBarMetrics.contains(metric)
+    }
+
+    func reconcileStatusBarMetrics(with snapshot: UsageSnapshot) {
+        guard snapshot.subscription != nil else { return }
+        let available = StatusBarMetric.available(for: snapshot)
+        var next: [StatusBarMetric] = []
+        for selected in selectedStatusBarMetrics {
+            let metric: StatusBarMetric = selected == .fiveHourRemaining
+                && !available.contains(.fiveHourRemaining)
+                && available.contains(.weeklyRemaining) ? .weeklyRemaining : selected
+            if available.contains(metric), !next.contains(metric) { next.append(metric) }
+        }
+        if next != selectedStatusBarMetrics { selectedStatusBarMetrics = next }
     }
 
     func setStatusBarMetric(_ metric: StatusBarMetric, enabled: Bool) {
@@ -139,7 +152,18 @@ final class AppSettings: ObservableObject {
             return defaultStatusBarMetrics
         }
 
-        let metrics = rawValues.compactMap(StatusBarMetric.init(rawValue:))
+        var metrics: [StatusBarMetric] = []
+        for rawValue in rawValues {
+            let migratedValue: String
+            switch rawValue {
+            case "primaryRemaining": migratedValue = "fiveHourRemaining"
+            case "spendRemaining": migratedValue = "weeklyRemaining"
+            default: migratedValue = rawValue
+            }
+            if let metric = StatusBarMetric(rawValue: migratedValue), !metrics.contains(metric) {
+                metrics.append(metric)
+            }
+        }
         return rawValues.isEmpty ? [] : (metrics.isEmpty ? defaultStatusBarMetrics : metrics)
     }
 

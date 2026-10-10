@@ -35,6 +35,13 @@ struct AppStrings {
         }
     }
 
+    var refreshing: String {
+        switch language {
+        case .english: return "Refreshing…"
+        case .simplifiedChinese: return "正在刷新…"
+        }
+    }
+
     var menuBarMetrics: String {
         switch language {
         case .english:
@@ -78,6 +85,17 @@ struct AppStrings {
         case .simplifiedChinese:
             return "余额"
         }
+    }
+
+    var subscriptionType: String {
+        switch language {
+        case .english: return "Subscription"
+        case .simplifiedChinese: return "订阅类型"
+        }
+    }
+
+    func quotaTitle(_ period: UsageQuotaPeriod) -> String {
+        metricTitle(period == .fiveHours ? .fiveHourRemaining : .weeklyRemaining)
     }
 
     var available: String {
@@ -125,15 +143,6 @@ struct AppStrings {
         }
     }
 
-    var bucket: String {
-        switch language {
-        case .english:
-            return "Bucket"
-        case .simplifiedChinese:
-            return "额度桶"
-        }
-    }
-
     var spendLimit: String {
         switch language {
         case .english:
@@ -159,6 +168,53 @@ struct AppStrings {
         case .simplifiedChinese:
             return "Token"
         }
+    }
+
+    var tokenChartHint: String {
+        switch language {
+        case .english: return "Hover for daily usage"
+        case .simplifiedChinese: return "悬停查看每日用量"
+        }
+    }
+
+    func tokenChartTotal(_ tokens: Int64?) -> String {
+        let value = localizedValue(UsageFormatting.tokenCount(tokens))
+        switch language {
+        case .english: return "30-day total: \(value)"
+        case .simplifiedChinese: return "最近30天总计用量：\(value)"
+        }
+    }
+
+    func tokenChartTotalDetail(_ tokens: Int64?, reportedDays: Int) -> String {
+        let value = tokenChartValue(tokens)
+        guard tokens != nil, reportedDays < 30 else { return value }
+        switch language {
+        case .english: return "\(value) · Based on \(reportedDays) days with reported usage"
+        case .simplifiedChinese: return "\(value) · 汇总已返回数据的 \(reportedDays) 天"
+        }
+    }
+
+    var tokenHistoryUnavailable: String {
+        switch language {
+        case .english: return "Daily usage unavailable"
+        case .simplifiedChinese: return "暂无每日用量数据"
+        }
+    }
+
+    func tokenChartDate(_ date: Date, includeYear: Bool = false) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = includeYear ? "yyyy/M/dd" : "M/dd"
+        return formatter.string(from: date)
+    }
+
+    func tokenChartValue(_ tokens: Int64?) -> String {
+        guard let tokens else { return unavailable }
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        return "\(formatter.string(from: NSNumber(value: tokens)) ?? String(tokens)) tokens"
     }
 
     var today: String {
@@ -253,19 +309,19 @@ struct AppStrings {
 
     func metricTitle(_ metric: StatusBarMetric) -> String {
         switch metric {
-        case .primaryRemaining:
+        case .fiveHourRemaining:
             switch language {
             case .english:
-                return "Primary remaining"
+                return "5-hour quota remaining"
             case .simplifiedChinese:
-                return "主额度剩余"
+                return "5小时额度余额"
             }
-        case .spendRemaining:
+        case .weeklyRemaining:
             switch language {
             case .english:
-                return "Spend remaining"
+                return "Weekly quota remaining"
             case .simplifiedChinese:
-                return "消费额度剩余"
+                return "周额度余额"
             }
         case .resetTime:
             switch language {
@@ -280,34 +336,6 @@ struct AppStrings {
                 return "Credits"
             case .simplifiedChinese:
                 return "余额"
-            }
-        case .todayTokens:
-            switch language {
-            case .english:
-                return "Today tokens"
-            case .simplifiedChinese:
-                return "今日 Token"
-            }
-        case .lifetimeTokens:
-            switch language {
-            case .english:
-                return "Lifetime tokens"
-            case .simplifiedChinese:
-                return "累计 Token"
-            }
-        case .peakDailyTokens:
-            switch language {
-            case .english:
-                return "Peak day tokens"
-            case .simplifiedChinese:
-                return "峰值日 Token"
-            }
-        case .currentStreakDays:
-            switch language {
-            case .english:
-                return "Current streak"
-            case .simplifiedChinese:
-                return "连续天数"
             }
         }
     }

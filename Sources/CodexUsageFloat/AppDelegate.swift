@@ -147,8 +147,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
 
+        let contentView = NSHostingView(rootView: content)
         let panel = UsagePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 524),
+            contentRect: NSRect(origin: .zero, size: contentView.fittingSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -162,19 +163,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.collectionBehavior = [.moveToActiveSpace, .transient, .ignoresCycle]
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.contentView = NSHostingView(rootView: content)
+        panel.contentView = contentView
 
         self.panel = panel
     }
 
     private func configureFloatingPanel() {
-        let textField = NSTextField(labelWithString: metricsTitle(for: nil))
+        let textField = NSTextField(wrappingLabelWithString: metricsTitle(for: nil))
         textField.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         textField.textColor = .labelColor
         textField.alignment = .center
-        textField.lineBreakMode = .byTruncatingTail
-        textField.maximumNumberOfLines = 1
-        textField.cell?.usesSingleLineMode = true
+        textField.lineBreakMode = .byWordWrapping
+        textField.maximumNumberOfLines = 0
+        textField.cell?.usesSingleLineMode = false
 
         let backgroundView = FloatingMetricsContentView(frame: NSRect(x: 0, y: 0, width: 80, height: 30))
         backgroundView.material = .popover
@@ -186,6 +187,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         backgroundView.layer?.masksToBounds = true
         backgroundView.onDragEnded = { [weak self] origin in
             self?.saveFloatingWindowOrigin(origin)
+        }
+        backgroundView.onContextMenu = { [weak self] event, view in
+            guard let self else { return }
+            self.hideAllPanels()
+            NSMenu.popUpContextMenu(self.makeStatusMenu(), with: event, for: view)
         }
         backgroundView.addSubview(textField)
 
@@ -222,7 +228,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func popStatusMenu() {
         hideAllPanels()
+        let menu = makeStatusMenu()
+        menu.popUp(positioning: nil, at: statusMenuOrigin(for: menu), in: nil)
+    }
 
+    private func makeStatusMenu() -> NSMenu {
         let strings = AppStrings(language: settings.language)
         let menu = NSMenu()
         let openItem = NSMenuItem(title: strings.openPanel, action: #selector(openPanelFromMenu), keyEquivalent: "")
@@ -252,7 +262,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         menu.update()
-        menu.popUp(positioning: nil, at: statusMenuOrigin(for: menu), in: nil)
+        return menu
     }
 
     @objc private func openPanelFromMenu() {
@@ -294,6 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        resizePanelToFitContent()
         positionPanelBelowStatusItem(panel)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -331,6 +342,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateMetricDisplays(_ snapshot: UsageSnapshot?) {
+        if let snapshot { settings.reconcileStatusBarMetrics(with: snapshot) }
+        // Measure after SwiftUI has received the updated snapshot or language.
+        DispatchQueue.main.async { [weak self] in
+            self?.resizePanelToFitContent()
+        }
         updateStatusItemTitle(snapshot)
         updateFloatingWindow(snapshot)
     }
@@ -357,9 +373,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             44,
             screen.visibleFrame.width - floatingWindowMargin * 2 - floatingWindowHorizontalPadding * 2
         )
-        let textSize = floatingTextField.intrinsicContentSize
+        // Measure the cell's full content rather than the field's previous layout.
+        let textSize = floatingTextField.cell?.cellSize ?? floatingTextField.intrinsicContentSize
         let textWidth = min(max(ceil(textSize.width), 44), maxTextWidth)
-        let textHeight = ceil(textSize.height)
+        let wrappedSize = floatingTextField.cell?.cellSize(forBounds: NSRect(
+            x: 0, y: 0, width: textWidth, height: CGFloat.greatestFiniteMagnitude
+        )) ?? textSize
+        let textHeight = ceil(wrappedSize.height)
         let panelSize = NSSize(
             width: textWidth + floatingWindowHorizontalPadding * 2,
             height: textHeight + floatingWindowVerticalPadding * 2
@@ -397,6 +417,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let x = min(max(screenFrame.midX - menuSize.width / 2, screen.visibleFrame.minX + 12), screen.visibleFrame.maxX - menuSize.width - 12)
         let y = screenFrame.minY - statusItemMenuGap
         return NSPoint(x: x, y: y)
+    }
+
+    private func resizePanelToFitContent() {
+        guard let panel, let contentView = panel.contentView else { return }
+        contentView.layoutSubtreeIfNeeded()
+        let size = NSSize(width: UsagePanelView.width, height: ceil(contentView.fittingSize.height))
+        guard panel.contentRect(forFrameRect: panel.frame).size != size else { return }
+        panel.setContentSize(size)
+        if panel.isVisible {
+            positionPanelBelowStatusItem(panel)
+        }
     }
 
     private func positionPanelBelowStatusItem(_ panel: NSPanel) {
@@ -559,6 +590,7 @@ private final class FloatingMetricsPanel: NSPanel {
 
 private final class FloatingMetricsContentView: NSVisualEffectView {
     var onDragEnded: ((NSPoint) -> Void)?
+    var onContextMenu: ((NSEvent, NSView) -> Void)?
 
     private var dragOffset: NSPoint?
 
@@ -567,7 +599,16 @@ private final class FloatingMetricsContentView: NSVisualEffectView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control) {
+            rightMouseDown(with: event)
+            return
+        }
         dragOffset = event.locationInWindow
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        dragOffset = nil
+        onContextMenu?(event, self)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -587,7 +628,7 @@ private final class FloatingMetricsContentView: NSVisualEffectView {
             dragOffset = nil
         }
 
-        guard let window else {
+        guard let window, dragOffset != nil else {
             return
         }
 

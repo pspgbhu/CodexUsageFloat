@@ -2,37 +2,41 @@ import AgentUsageCore
 import Foundation
 
 enum StatusBarMetric: String, CaseIterable, Identifiable {
-    case primaryRemaining
-    case spendRemaining
+    case fiveHourRemaining
+    case weeklyRemaining
     case resetTime
     case credits
-    case todayTokens
-    case lifetimeTokens
-    case peakDailyTokens
-    case currentStreakDays
 
     var id: String {
         rawValue
     }
 
+    static func available(for snapshot: UsageSnapshot?) -> [StatusBarMetric] {
+        guard let snapshot else { return allCases }
+        return allCases.filter { metric in
+            switch metric {
+            case .fiveHourRemaining: return snapshot.visibleQuotaPeriods.contains(.fiveHours)
+            case .weeklyRemaining: return snapshot.visibleQuotaPeriods.contains(.week)
+            case .resetTime, .credits: return true
+            }
+        }
+    }
+
+    private static func resetDate(from snapshot: UsageSnapshot?) -> Date? {
+        guard let snapshot else { return nil }
+        return snapshot.visibleQuotaPeriods.compactMap { snapshot.limits?.quotaWindows[$0]?.resetsAt }.first
+    }
+
     var shortLabel: String {
         switch self {
-        case .primaryRemaining:
-            return "P"
-        case .spendRemaining:
-            return "Spend"
+        case .fiveHourRemaining:
+            return "5h"
+        case .weeklyRemaining:
+            return "W"
         case .resetTime:
             return "R"
         case .credits:
             return "C"
-        case .todayTokens:
-            return "T"
-        case .lifetimeTokens:
-            return "L"
-        case .peakDailyTokens:
-            return "Pk"
-        case .currentStreakDays:
-            return "Stk"
         }
     }
 
@@ -50,14 +54,8 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
         switch self {
         case .resetTime:
             return strings.adaptiveResetTime(
-                snapshot?.limits?.individualLimit?.resetsAt
-                    ?? snapshot?.limits?.primary?.resetsAt
+                Self.resetDate(from: snapshot)
             )
-        case .currentStreakDays:
-            guard let days = snapshot?.tokenUsage?.currentStreakDays else {
-                return strings.unavailable
-            }
-            return strings.days(days)
         default:
             return strings.localizedValue(rawFullValue(from: snapshot))
         }
@@ -65,28 +63,16 @@ enum StatusBarMetric: String, CaseIterable, Identifiable {
 
     private func rawFullValue(from snapshot: UsageSnapshot?) -> String {
         switch self {
-        case .primaryRemaining:
-            return UsageFormatting.percent(snapshot?.limits?.primary?.remainingPercent)
-        case .spendRemaining:
-            return UsageFormatting.percent(snapshot?.limits?.individualLimit?.remainingPercent)
+        case .fiveHourRemaining:
+            return UsageFormatting.percent(snapshot?.limits?.quotaWindows[.fiveHours]?.remainingPercent)
+        case .weeklyRemaining:
+            return UsageFormatting.percent(snapshot?.limits?.quotaWindows[.week]?.remainingPercent)
         case .resetTime:
             return UsageFormatting.adaptiveResetTime(
-                snapshot?.limits?.individualLimit?.resetsAt
-                    ?? snapshot?.limits?.primary?.resetsAt
+                Self.resetDate(from: snapshot)
             )
         case .credits:
             return UsageFormatting.credits(snapshot?.credits)
-        case .todayTokens:
-            return UsageFormatting.tokenCount(snapshot?.tokenUsage?.todayTokens)
-        case .lifetimeTokens:
-            return UsageFormatting.tokenCount(snapshot?.tokenUsage?.lifetimeTokens)
-        case .peakDailyTokens:
-            return UsageFormatting.tokenCount(snapshot?.tokenUsage?.peakDailyTokens)
-        case .currentStreakDays:
-            guard let days = snapshot?.tokenUsage?.currentStreakDays else {
-                return "Unavailable"
-            }
-            return "\(days)d"
         }
     }
 
