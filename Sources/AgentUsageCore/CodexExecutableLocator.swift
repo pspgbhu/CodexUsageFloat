@@ -1,7 +1,8 @@
 import Foundation
 
 public enum CodexExecutableLocator {
-    public static let chatGPTAppExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex"
+    public static let chatGPTAppExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+    public static let legacyChatGPTAppExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex"
     public static let legacyCodexAppExecutablePath = "/Applications/Codex.app/Contents/Resources/codex"
 
     public static var defaultExecutablePath: String {
@@ -14,6 +15,7 @@ public enum CodexExecutableLocator {
     ) -> String {
         let knownAppPaths = [
             chatGPTAppExecutablePath,
+            legacyChatGPTAppExecutablePath,
             legacyCodexAppExecutablePath
         ]
 

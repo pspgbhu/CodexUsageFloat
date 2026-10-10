@@ -2,6 +2,36 @@ import XCTest
 @testable import AgentUsageCore
 
 final class CodexExecutableLocatorTests: XCTestCase {
+    func testMigratesMissingFlatChatGPTPathToNestedCLI() {
+        let resolved = resolve(
+            configuredPath: CodexExecutableLocator.legacyChatGPTAppExecutablePath,
+            executablePaths: [CodexExecutableLocator.chatGPTAppExecutablePath]
+        )
+
+        XCTAssertEqual(resolved, CodexExecutableLocator.chatGPTAppExecutablePath)
+    }
+
+    func testSupportsOlderChatGPTInstallation() {
+        let resolved = resolve(
+            configuredPath: nil,
+            executablePaths: [CodexExecutableLocator.legacyChatGPTAppExecutablePath]
+        )
+
+        XCTAssertEqual(resolved, CodexExecutableLocator.legacyChatGPTAppExecutablePath)
+    }
+
+    func testPrefersNestedCLIWhenBothChatGPTLayoutsExist() {
+        let resolved = resolve(
+            configuredPath: nil,
+            executablePaths: [
+                CodexExecutableLocator.chatGPTAppExecutablePath,
+                CodexExecutableLocator.legacyChatGPTAppExecutablePath
+            ]
+        )
+
+        XCTAssertEqual(resolved, CodexExecutableLocator.chatGPTAppExecutablePath)
+    }
+
     func testPrefersChatGPTAppForNewConfiguration() {
         let resolved = resolve(
             configuredPath: nil,

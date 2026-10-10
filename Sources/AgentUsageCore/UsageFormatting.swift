@@ -43,10 +43,35 @@ public enum UsageFormatting {
         }
 
         if let balance = credits.balance, !balance.isEmpty {
-            return balance
+            return formattedBalance(balance)
         }
 
         return credits.hasCredits ? "Available" : "No credits"
+    }
+
+    private static func formattedBalance(_ balance: String) -> String {
+        guard let range = balance.range(
+            of: #"-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)\.[0-9]{3,}"#,
+            options: .regularExpression
+        ) else { return balance }
+
+        let number = String(balance[range])
+        guard var value = Decimal(
+            string: number.replacingOccurrences(of: ",", with: ""),
+            locale: Locale(identifier: "en_US_POSIX")
+        ) else { return balance }
+
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &value, 2, .plain)
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = number.contains(",")
+        formatter.maximumFractionDigits = 2
+        guard let formatted = formatter.string(from: NSDecimalNumber(decimal: rounded)) else {
+            return balance
+        }
+        return balance.replacingCharacters(in: range, with: formatted)
     }
 
     public static func dateTime(_ date: Date?) -> String {

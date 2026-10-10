@@ -52,7 +52,7 @@ public actor CodexUsageProvider: UsageProvider {
         var platformOs: String
     }
 
-    private let executablePath: String
+    private let configuredExecutablePath: String?
     private let requestTimeoutSeconds: TimeInterval
     private let decoder = JSONDecoder()
     private let pendingResponses = PendingResponseStore()
@@ -72,7 +72,7 @@ public actor CodexUsageProvider: UsageProvider {
         executablePath: String? = nil,
         requestTimeoutSeconds: TimeInterval = 12
     ) {
-        self.executablePath = CodexExecutableLocator.resolve(configuredPath: executablePath)
+        self.configuredExecutablePath = executablePath
         self.requestTimeoutSeconds = requestTimeoutSeconds
     }
 
@@ -152,6 +152,8 @@ public actor CodexUsageProvider: UsageProvider {
             try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }
 
+        // App updates can move the bundled CLI while this menu bar app is running.
+        let executablePath = CodexExecutableLocator.resolve(configuredPath: configuredExecutablePath)
         guard FileManager.default.isExecutableFile(atPath: executablePath) else {
             throw UsageProviderError.agentUnavailable("Codex CLI is not executable at \(executablePath).")
         }
